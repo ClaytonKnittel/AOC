@@ -1,6 +1,7 @@
 use std::fs::File;
-use std::io::{self, BufRead};
-use std::path::Path;
+use std::io::{self};
+
+use utils::get_input;
 
 struct MaxSet<T: PartialOrd + Copy> {
   n: u32,
@@ -31,11 +32,6 @@ impl<T: PartialOrd + Copy> MaxSet<T> {
   fn all<'a>(self: &'a Self) -> std::slice::Iter<T> {
     self.top.iter()
   }
-}
-
-fn get_input() -> Result<io::Lines<io::BufReader<File>>, std::io::Error> {
-  let file = File::open(&Path::new("input.txt"))?;
-  Ok(io::BufReader::new(file).lines())
 }
 
 fn parse(content: &mut io::Lines<io::BufReader<File>>) -> u64 {
