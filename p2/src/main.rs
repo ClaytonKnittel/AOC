@@ -11,6 +11,13 @@ enum RPS {
   SCISSORS = 2,
 }
 
+#[derive(Copy, Clone)]
+enum Res {
+  LOSE = 0,
+  TIE = 1,
+  WIN = 2,
+}
+
 const RPS_MOVES: u32 = 3;
 
 struct Outcome {
@@ -20,6 +27,21 @@ struct Outcome {
 
 impl Outcome {
   fn new(p1_move: RPS, p2_move: RPS) -> Self {
+    Self { p1_move, p2_move }
+  }
+
+  fn induce(outcome: Res, p2_move: RPS) -> Self {
+    let out_ord = outcome as i32;
+    let p2_ord = p2_move as i32;
+
+    let p1_move =
+      match (out_ord + p2_ord + (RPS_MOVES - (Res::TIE as u32)) as i32) % (RPS_MOVES as i32) {
+        0 => RPS::ROCK,
+        1 => RPS::PAPER,
+        2 => RPS::SCISSORS,
+        _ => panic!("Unreachable"),
+      };
+
     Self { p1_move, p2_move }
   }
 
@@ -62,14 +84,14 @@ fn line_to_outcome(line_res: Result<String, std::io::Error>) -> Result<Outcome, 
     "C" => RPS::SCISSORS,
     &_ => panic!("Unreachable"),
   };
-  let our_move = match &choices[2] {
-    "X" => RPS::ROCK,
-    "Y" => RPS::PAPER,
-    "Z" => RPS::SCISSORS,
+  let outcome = match &choices[2] {
+    "X" => Res::LOSE,
+    "Y" => Res::TIE,
+    "Z" => Res::WIN,
     &_ => panic!("Unreachable"),
   };
 
-  Ok(Outcome::new(our_move, their_move))
+  Ok(Outcome::induce(outcome, their_move))
 }
 
 fn main() -> Result<(), std::io::Error> {
