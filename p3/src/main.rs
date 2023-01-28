@@ -28,15 +28,15 @@ fn main() -> Result<(), std::io::Error> {
     .into_iter()
     .collect::<Result<Vec<String>, std::io::Error>>()?;
 
-  let mut iter = itertools::izip!(
+  let iter = itertools::izip!(
     contents.iter().step_by(3),
     contents.iter().skip(1).step_by(3),
     contents.iter().skip(2).step_by(3)
   );
 
-  let prio_sum = iter.try_fold(0u32, |prio_sum, (r1, r2, r3)| {
-    Ok::<u32, std::io::Error>(prio_sum + item_prio(&r1, &r2, &r3))
-  })?;
+  let prio_sum = iter.fold(0u32, |prio_sum, (r1, r2, r3)| {
+    prio_sum + item_prio(&r1, &r2, &r3)
+  });
 
   println!("Sum of item priorities: {}", prio_sum);
   Ok(())
