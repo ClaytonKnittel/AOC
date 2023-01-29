@@ -16,6 +16,10 @@ impl Range {
   pub fn contains(&self, other: &Self) -> bool {
     self.l <= other.l && self.u >= other.u
   }
+
+  pub fn overlaps(&self, other: &Self) -> bool {
+    self.u >= other.l && self.l <= other.u
+  }
 }
 
 fn parse_ranges(line: &str) -> Result<(Range, Range), std::num::ParseIntError> {
@@ -36,15 +40,31 @@ fn line_shadows(line: &str) -> bool {
   r1.contains(&r2) || r2.contains(&r1)
 }
 
+fn line_overlaps(line: &str) -> bool {
+  let (r1, r2) = parse_ranges(line).unwrap();
+  r1.overlaps(&r2)
+}
+
 fn main() -> Result<(), std::io::Error> {
   let contents = utils::get_input()?;
-  let num_shadows = contents.fold(0u32, |cnt, line| {
-    if line_shadows(&line.unwrap()) {
-      cnt + 1
-    } else {
-      cnt
-    }
-  });
+
+  let num_shadows = if utils::is_p1() {
+    contents.fold(0u32, |cnt, line| {
+      if line_shadows(&line.unwrap()) {
+        cnt + 1
+      } else {
+        cnt
+      }
+    })
+  } else {
+    contents.fold(0u32, |cnt, line| {
+      if line_overlaps(&line.unwrap()) {
+        cnt + 1
+      } else {
+        cnt
+      }
+    })
+  };
 
   println!("Num shadowed pairs: {}", num_shadows);
 
