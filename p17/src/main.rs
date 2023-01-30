@@ -8,6 +8,10 @@ struct Args {
   /// How many rocks to drop. Default is 2022
   #[arg(short, default_value_t = 2022)]
   n: u32,
+
+  /// if set, only print the timing in microseconds.
+  #[arg(short, default_value_t = false)]
+  t: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -352,7 +356,11 @@ fn main() -> Result<(), std::io::Error> {
   let h = chamber.height();
   let end = std::time::Instant::now();
 
-  println!("{} in {:?}", h, end - start);
+  if args.t {
+    println!("{}", (end - start).as_micros());
+  } else {
+    println!("{} in {:?}", h, end - start);
+  }
 
   Ok(())
 }
