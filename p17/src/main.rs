@@ -330,13 +330,18 @@ fn main() -> Result<(), std::io::Error> {
   let wind = contents.remove(0);
   assert_eq!(contents.len(), 0);
 
+  let start = std::time::Instant::now();
+
   let mut chamber = Chamber::new(WindPattern::new(&wind));
 
   for _ in 0..2022 {
     chamber.do_rock_fall();
   }
 
-  println!("{}", chamber.height());
+  let h = chamber.height();
+  let end = std::time::Instant::now();
+
+  println!("{} in {:?}", h, end - start);
 
   Ok(())
 }
