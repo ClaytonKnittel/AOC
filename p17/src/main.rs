@@ -7,7 +7,7 @@ use std::fmt;
 struct Args {
   /// How many rocks to drop. Default is 2022
   #[arg(short, default_value_t = 2022)]
-  n: u32,
+  n: u64,
 
   /// if set, only print the timing in microseconds.
   #[arg(short, default_value_t = false)]
@@ -71,35 +71,35 @@ impl RockType {
   }
 }
 
-const ROCK_MAX_HEIGHT: u32 = 4;
+const ROCK_MAX_HEIGHT: u64 = 4;
 
 struct Rock {
   piece_mask: u32,
-  height: u32,
   rock_type: RockType,
+  height: u64,
 }
 
 impl Rock {
-  pub fn new(rock_type: RockType, height: u32) -> Self {
+  pub fn new(rock_type: RockType, height: u64) -> Self {
     const ROCKS: (u32, u32, u32, u32, u32) = (
       // ####
-      0b00000000_00000000_00000000_00111100u32,
+      0b00000000_00000000_00000000_00111100,
       // .#.
       // ###
       // .#.
-      0b00000000_00001000_00011100_00001000u32,
+      0b00000000_00001000_00011100_00001000,
       // ..#
       // ..#
       // ###
-      0b00000000_00010000_00010000_00011100u32,
+      0b00000000_00010000_00010000_00011100,
       // #
       // #
       // #
       // #
-      0b00000100_00000100_00000100_00000100u32,
+      0b00000100_00000100_00000100_00000100,
       // ##
       // ##
-      0b00000000_00000000_00001100_00001100u32,
+      0b00000000_00000000_00001100_00001100,
     );
 
     Self {
@@ -110,8 +110,8 @@ impl Rock {
         RockType::Vline => ROCKS.3,
         RockType::Boxx => ROCKS.4,
       },
-      height,
       rock_type,
+      height,
     }
   }
 
@@ -119,7 +119,7 @@ impl Rock {
     self.piece_mask
   }
 
-  pub fn height(&self) -> u32 {
+  pub fn height(&self) -> u64 {
     self.height
   }
 
@@ -127,7 +127,7 @@ impl Rock {
     &self.rock_type
   }
 
-  pub fn top(&self) -> u32 {
+  pub fn top(&self) -> u64 {
     self.height()
       + match &self.rock_type {
         RockType::Hline => 1,
@@ -205,6 +205,12 @@ impl ChamberWindow {
   pub fn merge(&mut self, rock: &Rock) {
     self.window |= rock.mask();
   }
+
+  pub fn has_full_row(&self) -> Option<u64> {
+    (0..4)
+      .rev()
+      .find(|idx| ((self.window >> (8 * idx)) & 0x7f) == 0x7f)
+  }
 }
 
 struct Chamber {
@@ -212,6 +218,7 @@ struct Chamber {
   falling_rock: Rock,
   window: ChamberWindow,
   winds: WindPattern,
+  bottom_height: u64,
 }
 
 impl Chamber {
@@ -221,16 +228,17 @@ impl Chamber {
       falling_rock: Rock::new(RockType::Hline, 0),
       window: ChamberWindow::new(&vec![0u8, 0u8, 0u8, 0u8]),
       winds,
+      bottom_height: 0,
     };
 
     chamber.first_4_drops();
     return chamber;
   }
 
-  fn height(&self) -> u32 {
+  fn height(&self) -> u64 {
     match self.rows.iter().rev().position(|&row| row != 0) {
-      Some(idx) => (self.rows.len() - idx) as u32,
-      None => 0,
+      Some(idx) => (self.rows.len() - idx) as u64 + self.bottom_height,
+      None => self.bottom_height,
     }
   }
 
@@ -239,12 +247,12 @@ impl Chamber {
   }
 
   fn drop(&mut self) -> bool {
-    if self.falling_rock.height() == 0 {
+    if self.falling_rock.height() == self.bottom_height {
       return false;
     }
 
     let mut next_window = self.window.clone();
-    next_window.slide(self.rows[self.falling_rock.height() as usize - 1]);
+    next_window.slide(self.rows[(self.falling_rock.height() - self.bottom_height) as usize - 1]);
 
     if next_window.collides(&self.falling_rock) {
       return false;
@@ -266,7 +274,19 @@ impl Chamber {
     let rock_height = self.falling_rock.height() as usize;
 
     window.merge(&self.falling_rock);
-    window.write_back(&mut self.rows[rock_height..rock_height + ROCK_MAX_HEIGHT as usize]);
+    window.write_back(
+      &mut self.rows[rock_height - self.bottom_height as usize
+        ..rock_height + ROCK_MAX_HEIGHT as usize - self.bottom_height as usize],
+    );
+
+    match window.has_full_row() {
+      Some(row) => {
+        let new_bottom = rock_height + row as usize + 1;
+        self.rows.drain(0..new_bottom - self.bottom_height as usize);
+        self.bottom_height = new_bottom as u64;
+      }
+      None => {}
+    }
   }
 
   fn next_piece(&mut self) {
@@ -278,7 +298,7 @@ impl Chamber {
       0,
     );
 
-    let h = self.rows.len() as u32 - ROCK_MAX_HEIGHT;
+    let h = self.rows.len() as u64 - ROCK_MAX_HEIGHT;
     let next_rock = Rock::new(self.falling_rock.rock_type().next(), h);
 
     self.window = ChamberWindow::new(&self.rows[h as usize..]);
@@ -310,7 +330,7 @@ impl fmt::Display for Chamber {
       })
       .collect();
 
-    for idx in 0..28u32 {
+    for idx in 0..28u64 {
       let r = idx / 7;
       let i = idx % 7;
 
