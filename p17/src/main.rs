@@ -74,19 +74,19 @@ impl Rock {
       // .#.
       // ###
       // .#.
-      0b00000000_00010000_00111000_00010000u32,
+      0b00000000_00001000_00011100_00001000u32,
       // ..#
       // ..#
       // ###
-      0b00000000_00001000_00001000_00111000u32,
+      0b00000000_00010000_00010000_00011100u32,
       // #
       // #
       // #
       // #
-      0b00100000_00100000_00100000_00100000u32,
+      0b00000100_00000100_00000100_00000100u32,
       // ##
       // ##
-      0b00000000_00000000_00110000_00110000u32,
+      0b00000000_00000000_00001100_00001100u32,
     );
 
     Self {
@@ -135,13 +135,20 @@ impl Rock {
     }
   }
 
-  pub fn push(&mut self, dir: Direction) -> bool {
+  pub fn push(&mut self, dir: Direction, window: &ChamberWindow) -> bool {
     let piece_mask = match dir {
-      Direction::Left => self.piece_mask << 1,
-      Direction::Right => self.piece_mask >> 1,
-    };
+      Direction::Left => self.piece_mask >> 1,
+      Direction::Right => self.piece_mask << 1,
+    } & 0x7f7f7f7f;
+    println!(
+      "push {}",
+      match dir {
+        Direction::Left => "left",
+        Direction::Right => "right",
+      }
+    );
 
-    if piece_mask.count_ones() != self.expected_bitcnt() {
+    if piece_mask.count_ones() != self.expected_bitcnt() || window.collides_mask(piece_mask) {
       return false;
     } else {
       self.piece_mask = piece_mask;
@@ -185,6 +192,10 @@ impl ChamberWindow {
     (self.window & rock.mask()) != 0
   }
 
+  pub fn collides_mask(&self, rock_mask: u32) -> bool {
+    (self.window & rock_mask) != 0
+  }
+
   pub fn merge(&mut self, rock: &Rock) {
     self.window |= rock.mask();
   }
@@ -210,8 +221,15 @@ impl Chamber {
     return chamber;
   }
 
+  fn height(&self) -> u32 {
+    match self.rows.iter().rev().position(|&row| row != 0) {
+      Some(idx) => (self.rows.len() - idx) as u32,
+      None => 0,
+    }
+  }
+
   fn push(&mut self) -> bool {
-    self.falling_rock.push(self.winds.next())
+    self.falling_rock.push(self.winds.next(), &self.window)
   }
 
   fn drop(&mut self) -> bool {
@@ -226,13 +244,16 @@ impl Chamber {
       return false;
     } else {
       self.falling_rock.drop();
+      self.window = next_window;
       return true;
     }
   }
 
   fn first_3_drops(&mut self) {
+    println!("{}", self);
     for _ in 0..3 {
       self.push();
+      println!("{}", self);
     }
   }
 
@@ -262,11 +283,17 @@ impl Chamber {
       &self.rows[next_rock.height() as usize..(next_rock.height() + ROCK_MAX_HEIGHT) as usize],
     );
     self.falling_rock = next_rock;
+
+    self.first_3_drops();
   }
 
   pub fn do_rock_fall(&mut self) {
     while self.drop() {
+      println!("dropped");
+      println!("{}", self);
       self.push();
+      println!("pushed");
+      println!("{}", self);
     }
 
     self.lock_falling_rock();
@@ -323,10 +350,12 @@ fn main() -> Result<(), std::io::Error> {
   let mut chamber = Chamber::new(WindPattern::new(&wind));
   println!("{}\n", chamber);
 
-  for _ in 0..1 {
+  for _ in 0..5 {
     chamber.do_rock_fall();
     println!("{}\n", chamber);
   }
+
+  println!("{}", chamber.height());
 
   Ok(())
 }
