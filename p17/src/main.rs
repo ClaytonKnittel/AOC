@@ -29,7 +29,7 @@ impl WindPattern {
 
   pub fn next(&mut self) -> Direction {
     let c = self.winds[self.idx];
-    self.idx = if self.idx == self.winds.len() {
+    self.idx = if self.idx == self.winds.len() - 1 {
       0
     } else {
       self.idx + 1
@@ -140,6 +140,7 @@ impl Rock {
       Direction::Left => self.piece_mask >> 1,
       Direction::Right => self.piece_mask << 1,
     } & 0x7f7f7f7f;
+    /*
     println!(
       "push {}",
       match dir {
@@ -147,6 +148,7 @@ impl Rock {
         Direction::Right => "right",
       }
     );
+    */
 
     if piece_mask.count_ones() != self.expected_bitcnt() || window.collides_mask(piece_mask) {
       return false;
@@ -217,7 +219,7 @@ impl Chamber {
       winds,
     };
 
-    chamber.first_3_drops();
+    chamber.first_4_drops();
     return chamber;
   }
 
@@ -249,11 +251,11 @@ impl Chamber {
     }
   }
 
-  fn first_3_drops(&mut self) {
-    println!("{}", self);
-    for _ in 0..3 {
+  fn first_4_drops(&mut self) {
+    // println!("{}", self);
+    for _ in 0..4 {
       self.push();
-      println!("{}", self);
+      // println!("{}", self);
     }
   }
 
@@ -266,34 +268,30 @@ impl Chamber {
   }
 
   fn next_piece(&mut self) {
-    let next_rock = Rock::new(
-      self.falling_rock.rock_type().next(),
-      self.falling_rock.top(),
-    );
-
     self.rows.resize(
       cmp::max(
-        (next_rock.height() + ROCK_MAX_HEIGHT) as usize,
+        (self.falling_rock.top() + ROCK_MAX_HEIGHT) as usize,
         self.rows.len(),
       ),
       0,
     );
 
-    self.window = ChamberWindow::new(
-      &self.rows[next_rock.height() as usize..(next_rock.height() + ROCK_MAX_HEIGHT) as usize],
-    );
+    let h = self.rows.len() as u32 - ROCK_MAX_HEIGHT;
+    let next_rock = Rock::new(self.falling_rock.rock_type().next(), h);
+
+    self.window = ChamberWindow::new(&self.rows[h as usize..]);
     self.falling_rock = next_rock;
 
-    self.first_3_drops();
+    self.first_4_drops();
   }
 
   pub fn do_rock_fall(&mut self) {
     while self.drop() {
-      println!("dropped");
-      println!("{}", self);
+      // println!("dropped");
+      // println!("{}", self);
       self.push();
-      println!("pushed");
-      println!("{}", self);
+      // println!("pushed");
+      // println!("{}", self);
     }
 
     self.lock_falling_rock();
@@ -348,11 +346,11 @@ fn main() -> Result<(), std::io::Error> {
   assert_eq!(contents.len(), 0);
 
   let mut chamber = Chamber::new(WindPattern::new(&wind));
-  println!("{}\n", chamber);
+  // println!("{}\n", chamber);
 
-  for _ in 0..5 {
+  for _ in 0..2022 {
     chamber.do_rock_fall();
-    println!("{}\n", chamber);
+    // println!("{}\n", chamber);
   }
 
   println!("{}", chamber.height());
