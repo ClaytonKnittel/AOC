@@ -70,15 +70,15 @@ impl Rock {
   pub fn new(rock_type: RockType, height: u32) -> Self {
     const ROCKS: (u32, u32, u32, u32, u32) = (
       // ####
-      0b00111100_00000000_00000000_00000000u32,
+      0b00000000_00000000_00000000_00111100u32,
       // .#.
       // ###
       // .#.
-      0b00010000_00111000_00010000_00000000u32,
+      0b00000000_00010000_00111000_00010000u32,
       // ..#
       // ..#
       // ###
-      0b00111000_00001000_00001000_00000000u32,
+      0b00000000_00001000_00001000_00111000u32,
       // #
       // #
       // #
@@ -86,7 +86,7 @@ impl Rock {
       0b00100000_00100000_00100000_00100000u32,
       // ##
       // ##
-      0b00110000_00110000_00000000_00000000u32,
+      0b00000000_00000000_00110000_00110000u32,
     );
 
     Self {
@@ -160,13 +160,13 @@ struct ChamberWindow {
 }
 
 impl ChamberWindow {
-  pub fn new(rows: &Vec<u8>) -> Self {
+  pub fn new(rows: &[u8]) -> Self {
     // Assumes rows has at least 4 elements
     Self {
-      window: (rows[rows.len() - 4] as u32)
-        | ((rows[rows.len() - 3] as u32) << 8)
-        | ((rows[rows.len() - 2] as u32) << 16)
-        | ((rows[rows.len() - 1] as u32) << 24),
+      window: (rows[0] as u32)
+        | ((rows[1] as u32) << 8)
+        | ((rows[2] as u32) << 16)
+        | ((rows[3] as u32) << 24),
     }
   }
 
@@ -257,6 +257,11 @@ impl Chamber {
       ),
       0,
     );
+
+    self.window = ChamberWindow::new(
+      &self.rows[next_rock.height() as usize..(next_rock.height() + ROCK_MAX_HEIGHT) as usize],
+    );
+    self.falling_rock = next_rock;
   }
 
   pub fn do_rock_fall(&mut self) {
