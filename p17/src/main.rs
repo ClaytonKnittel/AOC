@@ -140,15 +140,6 @@ impl Rock {
       Direction::Left => self.piece_mask >> 1,
       Direction::Right => self.piece_mask << 1,
     } & 0x7f7f7f7f;
-    /*
-    println!(
-      "push {}",
-      match dir {
-        Direction::Left => "left",
-        Direction::Right => "right",
-      }
-    );
-    */
 
     if piece_mask.count_ones() != self.expected_bitcnt() || window.collides_mask(piece_mask) {
       return false;
@@ -252,10 +243,8 @@ impl Chamber {
   }
 
   fn first_4_drops(&mut self) {
-    // println!("{}", self);
     for _ in 0..4 {
       self.push();
-      // println!("{}", self);
     }
   }
 
@@ -287,11 +276,7 @@ impl Chamber {
 
   pub fn do_rock_fall(&mut self) {
     while self.drop() {
-      // println!("dropped");
-      // println!("{}", self);
       self.push();
-      // println!("pushed");
-      // println!("{}", self);
     }
 
     self.lock_falling_rock();
@@ -346,11 +331,9 @@ fn main() -> Result<(), std::io::Error> {
   assert_eq!(contents.len(), 0);
 
   let mut chamber = Chamber::new(WindPattern::new(&wind));
-  // println!("{}\n", chamber);
 
   for _ in 0..2022 {
     chamber.do_rock_fall();
-    // println!("{}\n", chamber);
   }
 
   println!("{}", chamber.height());
