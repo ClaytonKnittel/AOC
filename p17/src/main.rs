@@ -1,5 +1,14 @@
+use clap::Parser;
 use std::cmp;
 use std::fmt;
+
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+  /// How many rocks to drop. Default is 2022
+  #[arg(short, default_value_t = 2022)]
+  n: u32,
+}
 
 #[derive(Clone, Copy)]
 enum Direction {
@@ -329,12 +338,14 @@ fn main() -> Result<(), std::io::Error> {
     .collect::<Result<Vec<String>, std::io::Error>>()?;
   let wind = contents.remove(0);
   assert_eq!(contents.len(), 0);
+  let args = Args::parse();
+  let n = args.n;
 
   let start = std::time::Instant::now();
 
   let mut chamber = Chamber::new(WindPattern::new(&wind));
 
-  for _ in 0..2022 {
+  for _ in 0..n {
     chamber.do_rock_fall();
   }
 
