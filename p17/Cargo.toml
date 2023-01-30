@@ -13,3 +13,8 @@ opt-level = 0
 
 [profile.release]
 opt-level = 3
+target-cpu = "native"
+debug-assertions = false
+overflow-checks = false
+lto = true
+strip = "symbols"

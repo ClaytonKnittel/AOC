@@ -1,7 +1,10 @@
+use std::cmp;
+use std::fmt;
+
 #[derive(Clone, Copy)]
 enum Direction {
-  left,
-  right,
+  Left,
+  Right,
 }
 
 struct WindPattern {
@@ -15,8 +18,8 @@ impl WindPattern {
       winds: pattern
         .chars()
         .map(|c| match c {
-          '<' => Direction::left,
-          '>' => Direction::right,
+          '<' => Direction::Left,
+          '>' => Direction::Right,
           _ => panic!("Unknown direction!"),
         })
         .collect(),
@@ -36,24 +39,26 @@ impl WindPattern {
 }
 
 enum RockType {
-  hline,
-  plus,
-  backl,
-  vline,
-  boxx,
+  Hline,
+  Plus,
+  Backl,
+  Vline,
+  Boxx,
 }
 
 impl RockType {
   pub fn next(&self) -> Self {
     match self {
-      hline => RockType::plus,
-      plus => RockType::backl,
-      backl => RockType::vline,
-      vline => RockType::boxx,
-      boxx => RockType::hline,
+      RockType::Hline => RockType::Plus,
+      RockType::Plus => RockType::Backl,
+      RockType::Backl => RockType::Vline,
+      RockType::Vline => RockType::Boxx,
+      RockType::Boxx => RockType::Hline,
     }
   }
 }
+
+const ROCK_MAX_HEIGHT: u32 = 4;
 
 struct Rock {
   piece_mask: u32,
@@ -63,7 +68,7 @@ struct Rock {
 
 impl Rock {
   pub fn new(rock_type: RockType, height: u32) -> Self {
-    const rocks: (u32, u32, u32, u32, u32) = (
+    const ROCKS: (u32, u32, u32, u32, u32) = (
       // ####
       0b00111100_00000000_00000000_00000000u32,
       // .#.
@@ -86,11 +91,11 @@ impl Rock {
 
     Self {
       piece_mask: match &rock_type {
-        hline => rocks.0,
-        plus => rocks.1,
-        backl => rocks.2,
-        vline => rocks.3,
-        boxx => rocks.4,
+        RockType::Hline => ROCKS.0,
+        RockType::Plus => ROCKS.1,
+        RockType::Backl => ROCKS.2,
+        RockType::Vline => ROCKS.3,
+        RockType::Boxx => ROCKS.4,
       },
       height,
       rock_type,
@@ -112,19 +117,36 @@ impl Rock {
   pub fn top(&self) -> u32 {
     self.height()
       + match &self.rock_type {
-        hline => 1,
-        plus => 3,
-        backl => 3,
-        vline => 4,
-        boxx => 2,
+        RockType::Hline => 1,
+        RockType::Plus => 3,
+        RockType::Backl => 3,
+        RockType::Vline => 4,
+        RockType::Boxx => 2,
       }
   }
 
-  pub fn push(&mut self, dir: Direction) {
-    match dir {
-      left => self.piece_mask <<= 1,
-      right => self.piece_mask >>= 1,
+  fn expected_bitcnt(&self) -> u32 {
+    match &self.rock_type {
+      RockType::Hline => 4,
+      RockType::Plus => 5,
+      RockType::Backl => 5,
+      RockType::Vline => 4,
+      RockType::Boxx => 4,
+    }
+  }
+
+  pub fn push(&mut self, dir: Direction) -> bool {
+    let piece_mask = match dir {
+      Direction::Left => self.piece_mask << 1,
+      Direction::Right => self.piece_mask >> 1,
     };
+
+    if piece_mask.count_ones() != self.expected_bitcnt() {
+      return false;
+    } else {
+      self.piece_mask = piece_mask;
+      return true;
+    }
   }
 
   pub fn drop(&mut self) {
@@ -132,6 +154,7 @@ impl Rock {
   }
 }
 
+#[derive(Clone)]
 struct ChamberWindow {
   window: u32,
 }
@@ -147,18 +170,28 @@ impl ChamberWindow {
     }
   }
 
+  pub fn write_back(&self, rows: &mut [u8]) {
+    rows[0] = self.window as u8;
+    rows[1] = (self.window >> 8) as u8;
+    rows[2] = (self.window >> 16) as u8;
+    rows[3] = (self.window >> 24) as u8;
+  }
+
   pub fn slide(&mut self, next_row: u8) {
     self.window = (self.window << 8) | (next_row as u32);
   }
 
-  pub fn collides(&self, rock: Rock) -> bool {
+  pub fn collides(&self, rock: &Rock) -> bool {
     (self.window & rock.mask()) != 0
+  }
+
+  pub fn merge(&mut self, rock: &Rock) {
+    self.window |= rock.mask();
   }
 }
 
 struct Chamber {
   rows: Vec<u8>,
-  next_rock_type: RockType,
   falling_rock: Rock,
   window: ChamberWindow,
   winds: WindPattern,
@@ -166,28 +199,112 @@ struct Chamber {
 
 impl Chamber {
   pub fn new(winds: WindPattern) -> Self {
-    Self {
+    let mut chamber = Self {
       rows: vec![0u8, 0u8, 0u8, 0u8],
-      next_rock_type: RockType::hline,
-      falling_rock: Rock::new(RockType::boxx, u32::MAX - 1),
+      falling_rock: Rock::new(RockType::Hline, 0),
       window: ChamberWindow::new(&vec![0u8, 0u8, 0u8, 0u8]),
       winds,
+    };
+
+    chamber.first_3_drops();
+    return chamber;
+  }
+
+  fn push(&mut self) -> bool {
+    self.falling_rock.push(self.winds.next())
+  }
+
+  fn drop(&mut self) -> bool {
+    if self.falling_rock.height() == 0 {
+      return false;
+    }
+
+    let mut next_window = self.window.clone();
+    next_window.slide(self.rows[self.falling_rock.height() as usize - 1]);
+
+    if next_window.collides(&self.falling_rock) {
+      return false;
+    } else {
+      self.falling_rock.drop();
+      return true;
     }
   }
 
-  pub fn push(&mut self, dir: Direction) -> bool {
-    false
+  fn first_3_drops(&mut self) {
+    for _ in 0..3 {
+      self.push();
+    }
   }
 
-  pub fn drop(&mut self) -> bool {
-    false
+  fn lock_falling_rock(&mut self) {
+    let window = &mut self.window;
+    let rock_height = self.falling_rock.height() as usize;
+
+    window.merge(&self.falling_rock);
+    window.write_back(&mut self.rows[rock_height..rock_height + ROCK_MAX_HEIGHT as usize]);
   }
 
-  pub fn next_piece(&mut self) {
+  fn next_piece(&mut self) {
     let next_rock = Rock::new(
       self.falling_rock.rock_type().next(),
       self.falling_rock.top(),
     );
+
+    self.rows.resize(
+      cmp::max(
+        (next_rock.height() + ROCK_MAX_HEIGHT) as usize,
+        self.rows.len(),
+      ),
+      0,
+    );
+  }
+
+  pub fn do_rock_fall(&mut self) {
+    while self.drop() {
+      self.push();
+    }
+
+    self.lock_falling_rock();
+    self.next_piece();
+  }
+}
+
+impl fmt::Display for Chamber {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    let mut rows: Vec<String> = self
+      .rows
+      .iter()
+      .map(|row| {
+        let row_str: String = (0..7)
+          .map(|idx| if ((row >> idx) & 1) == 0 { '.' } else { '#' })
+          .collect();
+        String::from("|") + &row_str + &String::from("|")
+      })
+      .collect();
+
+    for idx in 0..28u32 {
+      let r = idx / 7;
+      let i = idx % 7;
+
+      if ((self.falling_rock.mask() >> (r * 8 + i)) & 1) == 1 {
+        assert_eq!(
+          rows[(self.falling_rock.height() + r) as usize]
+            .chars()
+            .nth(i as usize + 1)
+            .unwrap(),
+          '.'
+        );
+        rows[(self.falling_rock.height() + r) as usize]
+          .replace_range(i as usize + 1..i as usize + 2, "@");
+      }
+    }
+
+    let disp = rows
+      .iter()
+      .fold(String::from("+-------+"), |disp, row_str| {
+        row_str.to_owned() + &String::from("\n") + &disp
+      });
+    write!(f, "{}", disp)
   }
 }
 
@@ -197,6 +314,14 @@ fn main() -> Result<(), std::io::Error> {
     .collect::<Result<Vec<String>, std::io::Error>>()?;
   let wind = contents.remove(0);
   assert_eq!(contents.len(), 0);
+
+  let mut chamber = Chamber::new(WindPattern::new(&wind));
+  println!("{}\n", chamber);
+
+  for _ in 0..1 {
+    chamber.do_rock_fall();
+    println!("{}\n", chamber);
+  }
 
   Ok(())
 }
