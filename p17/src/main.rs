@@ -247,6 +247,7 @@ impl Chamber {
   }
 
   fn drop(&mut self) -> bool {
+    assert!(self.falling_rock.height() >= self.bottom_height);
     if self.falling_rock.height() == self.bottom_height {
       return false;
     }
@@ -292,16 +293,16 @@ impl Chamber {
   fn next_piece(&mut self) {
     self.rows.resize(
       cmp::max(
-        (self.falling_rock.top() + ROCK_MAX_HEIGHT) as usize,
+        (self.falling_rock.top() + ROCK_MAX_HEIGHT - self.bottom_height) as usize,
         self.rows.len(),
       ),
       0,
     );
 
-    let h = self.rows.len() as u64 - ROCK_MAX_HEIGHT;
+    let h = self.rows.len() as u64 + self.bottom_height - ROCK_MAX_HEIGHT;
     let next_rock = Rock::new(self.falling_rock.rock_type().next(), h);
 
-    self.window = ChamberWindow::new(&self.rows[h as usize..]);
+    self.window = ChamberWindow::new(&self.rows[(h - self.bottom_height) as usize..]);
     self.falling_rock = next_rock;
 
     self.first_4_drops();
@@ -312,21 +313,45 @@ impl Chamber {
       self.push();
     }
 
+    let old_str = format!("{}", self);
+    let old_h = self.rows.len();
     self.lock_falling_rock();
     self.next_piece();
+
+    if self.rows.len() < old_h {
+      println!("old guy:\n{}\n", old_str);
+      println!("New guy:\n{}\n", self);
+
+      unsafe {
+        static mut v: u32 = 0;
+
+        v += 1;
+        if v == 3 {
+          panic!("done");
+        }
+      }
+    }
   }
 }
 
 impl fmt::Display for Chamber {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    let r_w = (0..)
+      .take_while(|i| 10u64.pow(*i) <= self.rows.len() as u64 + self.bottom_height)
+      .count();
+
     let mut rows: Vec<String> = self
       .rows
       .iter()
-      .map(|row| {
+      .enumerate()
+      .map(|(i, row)| {
         let row_str: String = (0..7)
           .map(|idx| if ((row >> idx) & 1) == 0 { '.' } else { '#' })
           .collect();
-        String::from("|") + &row_str + &String::from("|")
+        format!("{:r_w$} ", i as u64 + self.bottom_height, r_w = r_w)
+          + &String::from("|")
+          + &row_str
+          + &String::from("|")
       })
       .collect();
 
@@ -336,22 +361,21 @@ impl fmt::Display for Chamber {
 
       if ((self.falling_rock.mask() >> (r * 8 + i)) & 1) == 1 {
         assert_eq!(
-          rows[(self.falling_rock.height() + r) as usize]
+          rows[(self.falling_rock.height() + r - self.bottom_height) as usize]
             .chars()
-            .nth(i as usize + 1)
+            .nth(i as usize + 2 + r_w)
             .unwrap(),
           '.'
         );
-        rows[(self.falling_rock.height() + r) as usize]
-          .replace_range(i as usize + 1..i as usize + 2, "@");
+        rows[(self.falling_rock.height() + r - self.bottom_height) as usize]
+          .replace_range(i as usize + 2 + r_w..i as usize + 3 + r_w, "@");
       }
     }
 
-    let disp = rows
-      .iter()
-      .fold(String::from("+-------+"), |disp, row_str| {
-        row_str.to_owned() + &String::from("\n") + &disp
-      });
+    let disp = rows.iter().fold(
+      format!("{:r_w$} +-------+", "", r_w = r_w),
+      |disp, row_str| row_str.to_owned() + &String::from("\n") + &disp,
+    );
     write!(f, "{}", disp)
   }
 }
@@ -372,6 +396,7 @@ fn main() -> Result<(), std::io::Error> {
   for _ in 0..n {
     chamber.do_rock_fall();
   }
+  println!("{}\n", chamber);
 
   let h = chamber.height();
   let end = std::time::Instant::now();
