@@ -313,24 +313,8 @@ impl Chamber {
       self.push();
     }
 
-    let old_str = format!("{}", self);
-    let old_h = self.rows.len();
     self.lock_falling_rock();
     self.next_piece();
-
-    if self.rows.len() < old_h {
-      println!("old guy:\n{}\n", old_str);
-      println!("New guy:\n{}\n", self);
-
-      unsafe {
-        static mut v: u32 = 0;
-
-        v += 1;
-        if v == 3 {
-          panic!("done");
-        }
-      }
-    }
   }
 }
 
@@ -396,7 +380,6 @@ fn main() -> Result<(), std::io::Error> {
   for _ in 0..n {
     chamber.do_rock_fall();
   }
-  println!("{}\n", chamber);
 
   let h = chamber.height();
   let end = std::time::Instant::now();
