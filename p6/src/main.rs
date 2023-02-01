@@ -35,7 +35,7 @@ fn main() -> Result<(), std::io::Error> {
   let mut contents = utils::all_input()?;
   let line = contents.remove(0);
 
-  let n_in_row = 4;
+  let n_in_row = if utils::is_p1() { 4 } else { 14 };
 
   let mut us = UniqueStream::new(n_in_row);
   let idx_char_opt = line.chars().enumerate().find(|(_1, c)| us.push(*c));
