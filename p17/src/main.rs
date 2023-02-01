@@ -40,6 +40,10 @@ impl WindPattern {
     }
   }
 
+  pub fn idx(&self) -> usize {
+    self.idx
+  }
+
   pub fn next(&mut self) -> Direction {
     let c = self.winds[self.idx];
     self.idx = if self.idx == self.winds.len() - 1 {
@@ -48,6 +52,20 @@ impl WindPattern {
       self.idx + 1
     };
     c
+  }
+}
+
+impl PartialEq for WindPattern {
+  fn eq(&self, other: &Self) -> bool {
+    self.idx == other.idx
+  }
+}
+
+impl Eq for WindPattern {}
+
+impl std::hash::Hash for WindPattern {
+  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    self.idx.hash(state);
   }
 }
 
@@ -164,6 +182,21 @@ impl Rock {
 
   pub fn drop(&mut self) {
     self.height -= 1;
+  }
+}
+
+impl PartialEq for Rock {
+  fn eq(&self, other: &Self) -> bool {
+    // Ignore height intentionally.
+    self.piece_mask == other.piece_mask
+  }
+}
+
+impl Eq for Rock {}
+
+impl std::hash::Hash for Rock {
+  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    self.piece_mask.hash(state);
   }
 }
 
@@ -308,20 +341,49 @@ impl Chamber {
     self.first_4_drops();
   }
 
-  pub fn do_rock_fall(&mut self) {
+  pub fn do_rock_fall(&mut self, idx: u64) {
     while self.drop() {
       self.push();
     }
 
+    // let old_str = format!("{}", self);
+    let old_h = self.rows.len();
     self.lock_falling_rock();
     self.next_piece();
+
+    if self.rows.len() < old_h {
+      // println!("old guy:\n{}\n", old_str);
+      println!("New guy at {}:\n{}\n", idx, self);
+    }
+  }
+}
+
+impl PartialEq for Chamber {
+  fn eq(&self, other: &Self) -> bool {
+    self.rows == other.rows && self.falling_rock == other.falling_rock && self.winds == other.winds
+  }
+}
+
+impl Eq for Chamber {}
+
+impl std::hash::Hash for Chamber {
+  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    self.rows.hash(state);
+    self.falling_rock.hash(state);
+    self.winds.hash(state);
   }
 }
 
 impl fmt::Display for Chamber {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     let r_w = (0..)
-      .take_while(|i| 10u64.pow(*i) <= self.rows.len() as u64 + self.bottom_height)
+      .take_while(|i| {
+        10u64.pow(*i)
+          <= std::cmp::max(
+            self.rows.len() as u64 + self.bottom_height,
+            self.winds.idx() as u64,
+          )
+      })
       .count();
 
     let mut rows: Vec<String> = self
@@ -357,7 +419,7 @@ impl fmt::Display for Chamber {
     }
 
     let disp = rows.iter().fold(
-      format!("{:r_w$} +-------+", "", r_w = r_w),
+      format!("{:r_w$} +-------+", self.winds.idx(), r_w = r_w),
       |disp, row_str| row_str.to_owned() + &String::from("\n") + &disp,
     );
     write!(f, "{}", disp)
@@ -377,8 +439,8 @@ fn main() -> Result<(), std::io::Error> {
 
   let mut chamber = Chamber::new(WindPattern::new(&wind));
 
-  for _ in 0..n {
-    chamber.do_rock_fall();
+  for idx in 0..n {
+    chamber.do_rock_fall(idx);
   }
 
   let h = chamber.height();
