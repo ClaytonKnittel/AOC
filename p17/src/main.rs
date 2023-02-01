@@ -6,8 +6,12 @@ use std::fmt;
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-  /// How many rocks to drop. Default is 2022
-  #[arg(short, default_value_t = 2022)]
+  /// Which part of the problem to run. Default is 1.
+  #[arg(short, long, default_value_t = 1)]
+  part: u32,
+
+  /// How many rocks to drop. Default is 2022 for p1, or 1000000000000 for p2.
+  #[arg(short, default_value_t = 0)]
   n: u64,
 
   /// if set, only print the timing in microseconds.
@@ -494,7 +498,11 @@ fn main() -> Result<(), std::io::Error> {
   let wind = contents.remove(0);
   assert_eq!(contents.len(), 0);
   let args = Args::parse();
-  let n = args.n;
+  let mut n = args.n;
+
+  if n == 0 {
+    n = if args.part == 1 { 2022 } else { 1000000000000 }
+  }
 
   let start = std::time::Instant::now();
 
@@ -508,7 +516,7 @@ fn main() -> Result<(), std::io::Error> {
   if args.t {
     println!("{}", (end - start).as_micros());
   } else {
-    println!("{} in {:?}", h, end - start);
+    println!("Height after {} rocks: {} in {:?}", n, h, end - start);
   }
 
   Ok(())
