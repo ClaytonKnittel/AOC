@@ -27,6 +27,14 @@ pub fn get_input() -> Result<io::Lines<io::BufReader<File>>, std::io::Error> {
   Ok(io::BufReader::new(file).lines())
 }
 
+pub fn all_input() -> Result<Vec<String>, std::io::Error> {
+  Ok(
+    get_input()?
+      .into_iter()
+      .collect::<Result<Vec<String>, std::io::Error>>()?,
+  )
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
