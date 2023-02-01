@@ -1,5 +1,6 @@
 use clap::Parser;
 use std::cmp;
+use std::collections::HashMap;
 use std::fmt;
 
 #[derive(Parser)]
@@ -69,6 +70,16 @@ impl std::hash::Hash for WindPattern {
   }
 }
 
+impl Clone for WindPattern {
+  fn clone(&self) -> Self {
+    Self {
+      winds: vec![],
+      idx: self.idx,
+    }
+  }
+}
+
+#[derive(Clone)]
 enum RockType {
   Hline,
   Plus,
@@ -91,6 +102,7 @@ impl RockType {
 
 const ROCK_MAX_HEIGHT: u64 = 4;
 
+#[derive(Clone)]
 struct Rock {
   piece_mask: u32,
   rock_type: RockType,
@@ -183,6 +195,10 @@ impl Rock {
   pub fn drop(&mut self) {
     self.height -= 1;
   }
+
+  pub fn elevate_height(&mut self, height_gain: u64) {
+    self.height += height_gain;
+  }
 }
 
 impl PartialEq for Rock {
@@ -252,6 +268,9 @@ struct Chamber {
   window: ChamberWindow,
   winds: WindPattern,
   bottom_height: u64,
+  /// Map from Chamber instance to the number of rocks that had been dropped at
+  /// this point.
+  cache: HashMap<Chamber, u64>,
 }
 
 impl Chamber {
@@ -262,6 +281,7 @@ impl Chamber {
       window: ChamberWindow::new(&vec![0u8, 0u8, 0u8, 0u8]),
       winds,
       bottom_height: 0,
+      cache: HashMap::new(),
     };
 
     chamber.first_4_drops();
@@ -273,6 +293,11 @@ impl Chamber {
       Some(idx) => (self.rows.len() - idx) as u64 + self.bottom_height,
       None => self.bottom_height,
     }
+  }
+
+  fn elevate_height(&mut self, height_gain: u64) {
+    self.bottom_height += height_gain;
+    self.falling_rock.elevate_height(height_gain);
   }
 
   fn push(&mut self) -> bool {
@@ -341,19 +366,42 @@ impl Chamber {
     self.first_4_drops();
   }
 
-  pub fn do_rock_fall(&mut self, idx: u64) {
+  pub fn do_rock_fall(&mut self) {
     while self.drop() {
       self.push();
     }
 
-    // let old_str = format!("{}", self);
-    let old_h = self.rows.len();
     self.lock_falling_rock();
     self.next_piece();
+  }
 
-    if self.rows.len() < old_h {
-      // println!("old guy:\n{}\n", old_str);
-      println!("New guy at {}:\n{}\n", idx, self);
+  pub fn drop_until(&mut self, n_rocks: u64) {
+    let mut rocks = 0u64;
+
+    while rocks < n_rocks {
+      let old_h = self.rows.len();
+
+      self.do_rock_fall();
+      rocks += 1;
+
+      if self.rows.len() < old_h {
+        match self.cache.get_key_value(&self) {
+          Some((prev, prev_rocks)) => {
+            let rocks_per_repeat = rocks - prev_rocks;
+            let height_gain_per_repeat = self.height() - prev.height();
+            let n_repeats_fit = (n_rocks - rocks) / rocks_per_repeat;
+
+            let total_new_rocks = rocks_per_repeat * n_repeats_fit;
+            let total_height_gain = height_gain_per_repeat * n_repeats_fit;
+
+            rocks += total_new_rocks;
+            self.elevate_height(total_height_gain);
+          }
+          None => {
+            self.cache.insert(self.clone(), rocks);
+          }
+        }
+      }
     }
   }
 }
@@ -371,6 +419,19 @@ impl std::hash::Hash for Chamber {
     self.rows.hash(state);
     self.falling_rock.hash(state);
     self.winds.hash(state);
+  }
+}
+
+impl Clone for Chamber {
+  fn clone(&self) -> Self {
+    Self {
+      rows: self.rows.clone(),
+      falling_rock: self.falling_rock.clone(),
+      window: self.window.clone(),
+      winds: self.winds.clone(),
+      cache: HashMap::new(),
+      ..*self
+    }
   }
 }
 
@@ -439,9 +500,7 @@ fn main() -> Result<(), std::io::Error> {
 
   let mut chamber = Chamber::new(WindPattern::new(&wind));
 
-  for idx in 0..n {
-    chamber.do_rock_fall(idx);
-  }
+  chamber.drop_until(n);
 
   let h = chamber.height();
   let end = std::time::Instant::now();
