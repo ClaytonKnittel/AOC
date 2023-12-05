@@ -1,6 +1,6 @@
 module Main where
 import Data.Char (isDigit)
-import Data.Map (Map, empty, insert)
+import Data.Map (Map, empty, insert, member, keys)
 
 -- Split a string at every occurrence of a character.
 splitString :: String -> Char -> [String]
@@ -35,7 +35,7 @@ addPoint (Point { x = x1, y = y1 }) (Point { x = x2, y = y2 }) = Point { x = x1+
 
 data SymType = PartNum Integer Integer | PartSym Char
 instance Show SymType where
-  show (PartNum x len) = show x
+  show (PartNum x len) = show x ++ "(" ++ show len ++ ")"
   show (PartSym c) = show c
 instance Eq SymType where
   (PartNum x len) == (PartNum y len2) = x == y
@@ -50,7 +50,7 @@ instance Ord SymType where
 
 symPerimeter :: SymType -> [Point]
 symPerimeter (PartSym c)     = symPerimeter (PartNum 0 1)
-symPerimeter (PartNum _ len) = [Point { x=x, y=y } | x <- [-1..1], y <- [-1..len], x /= 0 || y == -1 || y == len]
+symPerimeter (PartNum _ len) = [Point { x=x, y=y } | y <- [-1..1], x <- [-1..len], y /= 0 || x == -1 || x == len]
 
 data Sym = Sym { t :: SymType, p :: Point } deriving (Eq, Ord)
 instance Show Sym where
@@ -68,6 +68,9 @@ symIsNum (Sym { t = (PartSym _) }) = False
 perimeter :: Sym -> [Point]
 perimeter (Sym { t=t, p=p }) = map (addPoint p) (symPerimeter t)
 
+symIsPart :: Sym -> SymMap -> Bool
+symIsPart sym symMap = any (`member` getMap symMap) (perimeter sym)
+
 newtype SymMap = SymMap (Map Point Sym)
 getMap :: SymMap -> Map Point Sym
 getMap (SymMap map) = map
@@ -79,9 +82,13 @@ mkSymMap (sym@(Sym { t = _, p = p }):syms) = SymMap (insert p sym (getMap (mkSym
 parseInput :: String -> [Sym]
 parseInput input = concat (zipWith (\ line y -> map (\ (sym, x) -> makeSym sym x y) (parseString line)) (lines input) [0..])
 
-data NumPos = NumPos { pos :: Point, val, len :: Integer }
-
 main :: IO ()
 main = do
   content <- readFile "input.txt"
-  print (parseInput content)
+  let syms = parseInput content
+  let symMap = mkSymMap (filter (not . symIsNum) syms)
+  let nums = filter symIsNum syms
+  print (sum (map (\Sym { t=PartNum x _ } -> x) (filter (`symIsPart` symMap) nums)))
+  -- print (map (symPerimeter . \Sym { t=t } -> t) nums)
+  -- print (map perimeter nums)
+  -- print (getMap symMap)
