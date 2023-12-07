@@ -1,36 +1,33 @@
-{-# LANGUAGE BlockArguments #-}
-
 module Main where
 
 import Data.List (sort, sortBy)
-import Data.Ord (Down (Down), comparing)
 
 valToString :: Integer -> String
-valToString 1 = "2"
-valToString 2 = "3"
-valToString 3 = "4"
-valToString 4 = "5"
-valToString 5 = "6"
-valToString 6 = "7"
-valToString 7 = "8"
-valToString 8 = "9"
-valToString 9 = "T"
-valToString 0 = "J"
+valToString 0 = "2"
+valToString 1 = "3"
+valToString 2 = "4"
+valToString 3 = "5"
+valToString 4 = "6"
+valToString 5 = "7"
+valToString 6 = "8"
+valToString 7 = "9"
+valToString 8 = "T"
+valToString 9 = "J"
 valToString 10 = "Q"
 valToString 11 = "K"
 valToString 12 = "A"
 
 stringToVal :: String -> Integer
-stringToVal "2" = 1
-stringToVal "3" = 2
-stringToVal "4" = 3
-stringToVal "5" = 4
-stringToVal "6" = 5
-stringToVal "7" = 6
-stringToVal "8" = 7
-stringToVal "9" = 8
-stringToVal "T" = 9
-stringToVal "J" = 0
+stringToVal "2" = 0
+stringToVal "3" = 1
+stringToVal "4" = 2
+stringToVal "5" = 3
+stringToVal "6" = 4
+stringToVal "7" = 5
+stringToVal "8" = 6
+stringToVal "9" = 7
+stringToVal "T" = 8
+stringToVal "J" = 9
 stringToVal "Q" = 10
 stringToVal "K" = 11
 stringToVal "A" = 12
@@ -45,25 +42,15 @@ instance Show Hand where
       ++ valToString c4
       ++ valToString c5
 
--- Skip Js here
-cntRepeats' :: [Integer] -> [Integer]
-cntRepeats' [] = []
-cntRepeats' (0 : rem) = cntRepeats' rem
-cntRepeats' [_] = [1]
-cntRepeats' (a : b : rem) =
+cntRepeats :: [Integer] -> [Integer]
+cntRepeats [] = []
+cntRepeats [_] = [1]
+cntRepeats (a : b : rem) =
   if a == b
     then
-      let (bCnt : remCnts) = cntRepeats' (b : rem)
+      let (bCnt : remCnts) = cntRepeats (b : rem)
        in (bCnt + 1 : remCnts)
-    else 1 : cntRepeats' (b : rem)
-
-cntRepeats :: [Integer] -> [Integer]
-cntRepeats nums =
-  let numJacks = toInteger (length (filter (== 0) nums))
-      reps = sortBy (comparing Data.Ord.Down) (cntRepeats' nums)
-   in case reps of
-        [] -> [numJacks]
-        (mostFreq : rem) -> mostFreq + numJacks : rem
+    else 1 : cntRepeats (b : rem)
 
 reduceBase' :: [Integer] -> Integer -> (Integer, Integer)
 reduceBase' [] _ = (0, 1)
