@@ -31,10 +31,10 @@ parseInput input =
         fromList (map parseConnection connections)
       )
 
-computePath :: [Direction] -> Map String Node -> [String]
-computePath directions connections =
+computePath :: String -> (String -> Bool) -> [Direction] -> Map String Node -> [String]
+computePath startNode endCondition directions connections =
   takeWhile
-    (/= "ZZZ")
+    endCondition
     ( scanl
         ( \curNodeName direction ->
             let node =
@@ -45,17 +45,17 @@ computePath directions connections =
                   Left -> left node
                   Right -> right node
         )
-        "AAA"
+        startNode
         (cycle directions)
     )
 
-countPathLength :: [Direction] -> Map String Node -> Integer
-countPathLength directions = genericLength . computePath directions
+countPathLength :: String -> (String -> Bool) -> [Direction] -> Map String Node -> Integer
+countPathLength startNode endCondition directions = genericLength . computePath startNode endCondition directions
 
 main :: IO ()
 main = do
   input <- readFile "input.txt"
   let (directions, connections) = parseInput input
-   in print (countPathLength directions connections)
+   in print (countPathLength "AAA" (/= "ZZZ") directions connections)
 
 -- in print (computePath directions connections)
