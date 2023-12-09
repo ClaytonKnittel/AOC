@@ -52,16 +52,13 @@ computePath startNode endCondition directions connections =
 countPathLength :: String -> (String -> Bool) -> [Direction] -> Map String Node -> Integer
 countPathLength startNode endCondition directions = genericLength . computePath startNode endCondition directions
 
-lcmList :: [Integer] -> Integer
-lcmList [n] = n
-lcmList (a : b : rem) = lcmList (lcm a b : rem)
-
 main :: IO ()
 main = do
   input <- readFile "input.txt"
   let (directions, connections) = parseInput input
    in print
-        ( lcmList
+        ( foldr1
+            lcm
             ( map
                 ( \startNode ->
                     countPathLength
