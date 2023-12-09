@@ -3,7 +3,7 @@
 module Main where
 
 import Data.List (genericLength)
-import Data.Map (Map, fromList, lookup)
+import Data.Map (Map, fromList, keys, lookup)
 import Data.Maybe (fromMaybe)
 import Prelude hiding (Left, Right)
 
@@ -52,10 +52,27 @@ computePath startNode endCondition directions connections =
 countPathLength :: String -> (String -> Bool) -> [Direction] -> Map String Node -> Integer
 countPathLength startNode endCondition directions = genericLength . computePath startNode endCondition directions
 
+lcmList :: [Integer] -> Integer
+lcmList [n] = n
+lcmList (a : b : rem) = lcmList (lcm a b : rem)
+
 main :: IO ()
 main = do
   input <- readFile "input.txt"
   let (directions, connections) = parseInput input
-   in print (countPathLength "AAA" (/= "ZZZ") directions connections)
+   in print
+        ( lcmList
+            ( map
+                ( \startNode ->
+                    countPathLength
+                      startNode
+                      ('Z' `notElem`)
+                      directions
+                      connections
+                )
+                (filter ('A' `elem`) (keys connections))
+            )
+        )
 
--- in print (computePath directions connections)
+-- in print (countPathLength "AAA" (/= "ZZZ") directions connections)
+-- in print (computePath "AAA" (/= "ZZZ") directions connections)
