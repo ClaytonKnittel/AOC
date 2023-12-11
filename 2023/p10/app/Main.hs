@@ -1,13 +1,23 @@
 module Main where
 
 import Data.Map (Map, empty, insert, lookup, mapMaybe)
+import Data.Maybe (fromMaybe)
 import Prelude hiding (lookup)
 
+addMaybe :: Integer -> Maybe Integer -> Maybe Integer
+addMaybe n (Just i) = Just (i + n)
+addMaybe _ Nothing = Nothing
+
 incMaybe :: Maybe Integer -> Maybe Integer
-incMaybe (Just i) = Just (i + 1)
-incMaybe Nothing = Nothing
+incMaybe = addMaybe 1
 
 data Point = Point Integer Integer deriving (Eq, Ord, Show)
+
+pointX :: Point -> Integer
+pointX (Point x _) = x
+
+pointY :: Point -> Integer
+pointY (Point _ y) = y
 
 pointNeighbors :: Point -> [Point]
 pointNeighbors (Point x y) =
@@ -71,16 +81,46 @@ parseInput input =
 followMaze :: Point -> Point -> Map Point Tile -> Maybe Integer
 followMaze from to map =
   case lookup to map of
-    Just S -> Just 0
+    Just S -> Just 1
     Just tile -> case tileConnection from to tile of
       Just nextTile -> incMaybe $ followMaze to nextTile map
       _ -> Nothing
     _ -> Nothing
 
+computeInteriorSize' :: Point -> Point -> Point -> Map Point Tile -> (Maybe Integer, Maybe Integer)
+computeInteriorSize' start from to map =
+  case lookup to map of
+    Just S -> (Just 0, Just 1)
+    Just tile -> case tileConnection from to tile of
+      Just nextTile ->
+        let (area, perim) = computeInteriorSize' start to nextTile map
+         in ( addMaybe
+                ( (pointY nextTile - pointY to)
+                    * (pointX to - pointX start)
+                )
+                area,
+              incMaybe perim
+            )
+      _ -> (Nothing, Nothing)
+    _ -> (Nothing, Nothing)
+
+computeInteriorSize ::
+  Point ->
+  Point ->
+  Map Point Tile ->
+  Maybe Integer
+computeInteriorSize start to map =
+  case computeInteriorSize' start start to map of
+    (Just area, Just perim)
+      | area >= 0 ->
+        Just (area - (perim `div` 2 - 1))
+      | otherwise -> Nothing
+    (Nothing, Nothing) -> Nothing
+
 -- case tileConnection from to
 
 maxLen :: Maybe Integer -> Integer
-maxLen (Just len) = (len + 1) `div` 2
+maxLen (Just len) = len `div` 2
 maxLen Nothing = -1
 
 main :: IO ()
@@ -93,3 +133,12 @@ main = do
               (\neighbor -> maxLen $ followMaze start neighbor tileMap)
               (pointNeighbors start)
         )
+        <> print
+          ( maximum $
+              map
+                ( \neighbor ->
+                    fromMaybe (-1) $
+                      computeInteriorSize start neighbor tileMap
+                )
+                (pointNeighbors start)
+          )
