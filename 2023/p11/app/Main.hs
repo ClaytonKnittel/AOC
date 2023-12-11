@@ -23,14 +23,14 @@ parseInput input =
     (empty, empty, 0)
     $ zip (lines input) [0 ..]
 
-remapCoords :: Map Integer Integer -> Integer -> Map Integer Integer
-remapCoords map range =
+remapCoords :: Map Integer Integer -> Integer -> Integer -> Map Integer Integer
+remapCoords map scale range =
   fst $
     foldr
       ( \val (remap, emptyCnt) ->
           if member val map
             then (insert val (val + emptyCnt) remap, emptyCnt)
-            else (remap, emptyCnt + 1)
+            else (remap, emptyCnt + scale)
       )
       (empty, 0)
       (reverse [0 .. (range - 1)])
@@ -54,8 +54,13 @@ main = do
   let xRange = toInteger $ length (lines input)
       yRange = toInteger $ length (head $ lines input)
       (xMap, yMap, galaxyCnt) = parseInput input
-      xRemap = remapCoords xMap xRange
-      yRemap = remapCoords yMap yRange
+      xRemap = remapCoords xMap 1 xRange
+      yRemap = remapCoords yMap 1 yRange
+      xRemap2 = remapCoords xMap 999999 xRange
+      yRemap2 = remapCoords yMap 999999 yRange
       newXMap = mapKeys (fromJust . (`lookup` xRemap)) xMap
       newYMap = mapKeys (fromJust . (`lookup` yRemap)) yMap
+      newXMap2 = mapKeys (fromJust . (`lookup` xRemap2)) xMap
+      newYMap2 = mapKeys (fromJust . (`lookup` yRemap2)) yMap
    in print (accumMap newXMap galaxyCnt + accumMap newYMap galaxyCnt)
+        <> print (accumMap newXMap2 galaxyCnt + accumMap newYMap2 galaxyCnt)
