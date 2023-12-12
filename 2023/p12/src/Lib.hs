@@ -29,6 +29,19 @@ parseInput input =
     )
     (lines input)
 
+unfoldLine :: ([Tile], [Integer]) -> ([Tile], [Integer])
+unfoldLine (tiles, contigs) =
+  ( tiles ++ [Unknown]
+      ++ tiles
+      ++ [Unknown]
+      ++ tiles
+      ++ [Unknown]
+      ++ tiles
+      ++ [Unknown]
+      ++ tiles,
+    contigs ++ contigs ++ contigs ++ contigs ++ contigs
+  )
+
 numWays' :: [Tile] -> [Integer] -> [Integer]
 numWays' tiles [] =
   scanr
@@ -67,10 +80,4 @@ hotSprings :: IO ()
 hotSprings = do
   input <- readFile "input.txt"
   print (sum (map (uncurry numWays) $ parseInput input))
-
--- let (tiles, contigs) = (parseInput input) !! 1
---  in print tiles <> print contigs
---       <> print (numWays' tiles (tail $ tail $ tail contigs))
---       <> print (numWays' tiles (tail $ tail contigs))
---       <> print (numWays' tiles (tail contigs))
---       <> print (numWays' tiles contigs)
+  print (sum (map (uncurry numWays . unfoldLine) $ parseInput input))
