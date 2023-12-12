@@ -4,13 +4,6 @@ import Data.Map (Map, empty, insert, lookup, mapMaybe)
 import Data.Maybe (fromMaybe)
 import Prelude hiding (lookup)
 
-addMaybe :: Integer -> Maybe Integer -> Maybe Integer
-addMaybe n (Just i) = Just (i + n)
-addMaybe _ Nothing = Nothing
-
-incMaybe :: Maybe Integer -> Maybe Integer
-incMaybe = addMaybe 1
-
 data Point = Point Integer Integer deriving (Eq, Ord, Show)
 
 pointX :: Point -> Integer
@@ -83,7 +76,7 @@ followMaze from to map =
   case lookup to map of
     Just S -> Just 1
     Just tile -> case tileConnection from to tile of
-      Just nextTile -> incMaybe $ followMaze to nextTile map
+      Just nextTile -> (+ 1) <$> followMaze to nextTile map
       _ -> Nothing
     _ -> Nothing
 
@@ -94,12 +87,13 @@ computeInteriorSize' start from to map =
     Just tile -> case tileConnection from to tile of
       Just nextTile ->
         let (area, perim) = computeInteriorSize' start to nextTile map
-         in ( addMaybe
-                ( (pointY nextTile - pointY to)
-                    * (pointX to - pointX start)
-                )
-                area,
-              incMaybe perim
+         in ( ( +
+                  ( (pointY nextTile - pointY to)
+                      * (pointX to - pointX start)
+                  )
+              )
+                <$> area,
+              (+ 1) <$> perim
             )
       _ -> (Nothing, Nothing)
     _ -> (Nothing, Nothing)

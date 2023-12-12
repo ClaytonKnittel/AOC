@@ -1,35 +1,68 @@
-cabal-version:      2.4
-name:               p10
-version:            0.1.0.0
+cabal-version: 2.2
 
--- A short (one-line) description of the package.
--- synopsis:
+-- This file has been generated from package.yaml by hpack version 0.36.0.
+--
+-- see: https://github.com/sol/hpack
 
--- A longer description of the package.
--- description:
+name:           p10
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/githubuser/p10#readme>
+homepage:       https://github.com/githubuser/p10#readme
+bug-reports:    https://github.com/githubuser/p10/issues
+author:         Author name here
+maintainer:     example@example.com
+copyright:      2023 Author name here
+license:        BSD-3-Clause
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    CHANGELOG.md
 
--- A URL where users can report bugs.
--- bug-reports:
+source-repository head
+  type: git
+  location: https://github.com/githubuser/p10
 
--- The license under which the package is released.
--- license:
-author:             Clayton Knittel
-maintainer:         cknit1999@gmail.com
+library
+  other-modules:
+      Paths_p10
+  autogen-modules:
+      Paths_p10
+  hs-source-dirs:
+      src
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  build-depends:
+      base >=4.7 && <5
+    , containers >=0.6
+  default-language: Haskell2010
 
--- A copyright notice.
--- copyright:
--- category:
-extra-source-files: CHANGELOG.md
+executable p10-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_p10
+  autogen-modules:
+      Paths_p10
+  hs-source-dirs:
+      app
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , containers >=0.6
+    , p10
+  default-language: Haskell2010
 
-executable p10
-    main-is:          Main.hs
-
-    -- Modules included in this executable, other than Main.
-    -- other-modules:    UF
-
-    -- LANGUAGE extensions used by modules in this package.
-    -- other-extensions:
-    build-depends:    base ^>=4.17.2.0
-                    , containers
-    hs-source-dirs:   app
-    default-language: Haskell2010
+test-suite p10-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_p10
+  autogen-modules:
+      Paths_p10
+  hs-source-dirs:
+      test
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , containers >=0.6
+    , p10
+  default-language: Haskell2010
