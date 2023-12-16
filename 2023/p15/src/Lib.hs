@@ -8,7 +8,7 @@ where
 import Data.Bool (bool)
 import Data.Char (ord)
 import Data.List.Split (splitOn)
-import Data.Map (Map, assocs, empty, findWithDefault, insert)
+import Data.Map (Map, assocs, empty, findWithDefault, insert, insertWith, lookup)
 import Prelude hiding (lookup)
 
 hash :: Char -> Integer -> Integer
@@ -34,14 +34,22 @@ applyOp (Remove str idx) m =
     )
     m
 applyOp (Remap focalLength str idx) m =
-  insert
-    idx
-    ( filter
-        ((/= str) . fst)
-        (findWithDefault [] idx m)
-        ++ [(str, focalLength)]
+  bool
+    ( insertWith
+        (flip (++))
+        idx
+        [(str, focalLength)]
+        (applyOp (Remove str idx) m)
     )
-    m
+    ( insert
+        idx
+        ( map
+            (bool (str, focalLength) <*> ((/= str) . fst))
+            (findWithDefault [] idx m)
+        )
+        m
+    )
+    $ maybe False (any ((== str) . fst)) (lookup idx m)
 
 focusingPower :: Map Integer [(String, Integer)] -> Integer
 focusingPower =
@@ -59,4 +67,4 @@ addSteps =
   do
     input <- readFile "input.txt"
     print $ sum $ map (foldl (flip hash) 0) $ splitOn "," $ filter (/= '\n') input
-    print $ foldl (flip $ applyOp . parseOp) empty $ splitOn "," $ filter (/= '\n') input
+    print $ focusingPower $ foldl (flip $ applyOp . parseOp) empty $ splitOn "," $ filter (/= '\n') input
