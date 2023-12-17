@@ -7,7 +7,7 @@ module Lib
 where
 
 import Data.Bool (bool)
-import Data.Map (Map, empty, fromList, insertWith, lookup, member)
+import Data.Map (Map, empty, fromList, insertWith, keys, lookup, member)
 import Prelude hiding (Left, Right, lookup)
 
 type CMap = Map (Integer, Integer)
@@ -81,7 +81,7 @@ followPath tileMap = follow (0, 0) Right tileMap empty
         ( foldr
             ( \(newCoord, newDir) newDirs ->
                 follow newCoord newDir tiles $
-                  insertWith (++) coord [newDir] newDirs
+                  insertWith (++) coord [dir] newDirs
             )
             dirs
             . nextTiles coord dir
@@ -93,27 +93,34 @@ followPath tileMap = follow (0, 0) Right tileMap empty
         )
 
 lava :: IO ()
-lava = do
-  input <- readFile "input.txt"
-  let dirs = followPath $ parseInput input
-   in print
-        (length dirs)
-        <> mconcat
-          ( map
-              ( \y ->
-                  putStrLn
-                    ( concatMap
-                        ( \x ->
-                            maybe
-                              "."
-                              ( \case
-                                  [dir] -> show dir
-                                  dirs2 -> show (length dirs2)
-                              )
-                              (lookup (x, y) dirs)
-                        )
-                        [-1 .. 10]
-                    )
-              )
-              [-1 .. 10]
-          )
+lava =
+  do
+    input <- readFile "input.txt"
+    let dirs = followPath $ parseInput input
+        xr = maximum $ map fst (keys dirs)
+        yr = maximum $ map snd (keys dirs)
+     in print
+          (length dirs)
+
+-- <> mconcat
+--   ( map
+--       ( \y ->
+--           putStrLn
+--             ( concatMap
+--                 ( \x ->
+--                     case lookup (x, y) $ parseInput input of
+--                       Just Empty ->
+--                         maybe
+--                           "."
+--                           ( \case
+--                               [dir] -> show dir
+--                               dirs2 -> show (length dirs2)
+--                           )
+--                           (lookup (x, y) dirs)
+--                       Just mirror -> show mirror
+--                 )
+--                 [0 .. xr]
+--             )
+--       )
+--       [0 .. yr]
+--   )
