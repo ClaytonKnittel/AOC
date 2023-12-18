@@ -1,4 +1,4 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TupleSections #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
 module Lib
@@ -7,7 +7,7 @@ module Lib
 where
 
 import Data.Bool (bool)
-import Data.Map (Map, empty, fromList, insertWith, keys, lookup, member)
+import Data.Map (Map, empty, fromList, insertWith, keys, lookup)
 import Prelude hiding (Left, Right, lookup)
 
 type CMap = Map (Integer, Integer)
@@ -72,35 +72,79 @@ parseInput =
       [0 ..]
     . lines
 
-followPath :: CMap Tile -> CMap [Direction]
-followPath tileMap = follow (0, 0) Right tileMap empty
-  where
-    follow coord dir tiles dirs =
-      maybe
+follow :: (Integer, Integer) -> Direction -> CMap Tile -> CMap [Direction] -> CMap [Direction]
+follow coord dir tiles dirs =
+  maybe
+    dirs
+    ( foldr
+        ( \(newCoord, newDir) newDirs ->
+            follow newCoord newDir tiles $
+              insertWith (++) coord [dir] newDirs
+        )
         dirs
-        ( foldr
-            ( \(newCoord, newDir) newDirs ->
-                follow newCoord newDir tiles $
-                  insertWith (++) coord [dir] newDirs
+        . nextTiles coord dir
+    )
+    ( bool
+        (lookup coord tiles)
+        Nothing
+        (maybe False (elem dir) (lookup coord dirs))
+    )
+
+followPath :: CMap Tile -> CMap [Direction]
+followPath tiles = follow (0, 0) Right tiles empty
+
+maximizeEnergy :: CMap Tile -> Integer
+maximizeEnergy tiles =
+  let xr = maximum $ map fst (keys tiles)
+      yr = maximum $ map snd (keys tiles)
+   in maximum $
+        map
+          ( ( \(coord, dir) ->
+                toInteger $
+                  length $ follow coord dir tiles empty
             )
-            dirs
-            . nextTiles coord dir
-        )
-        ( bool
-            (lookup coord tiles)
-            Nothing
-            (maybe False (elem dir) (lookup coord dirs))
-        )
+              . (,Right)
+              . (0,)
+          )
+          [0 .. yr]
+          ++ map
+            ( ( \(coord, dir) ->
+                  toInteger $
+                    length $ follow coord dir tiles empty
+              )
+                . (,Left)
+                . (xr,)
+            )
+            [0 .. yr]
+          ++ map
+            ( ( \(coord, dir) ->
+                  toInteger $
+                    length $ follow coord dir tiles empty
+              )
+                . (,Down)
+                . (,0)
+            )
+            [0 .. xr]
+          ++ map
+            ( ( \(coord, dir) ->
+                  toInteger $
+                    length $ follow coord dir tiles empty
+              )
+                . (,Up)
+                . (,yr)
+            )
+            [0 .. xr]
 
 lava :: IO ()
 lava =
   do
     input <- readFile "input.txt"
-    let dirs = followPath $ parseInput input
-        xr = maximum $ map fst (keys dirs)
-        yr = maximum $ map snd (keys dirs)
-     in print
-          (length dirs)
+    let tiles = parseInput input
+        dirs = followPath tiles
+     in -- xr = maximum $ map fst (keys dirs)
+        -- yr = maximum $ map snd (keys dirs)
+        print (length dirs)
+          <> print (maximizeEnergy tiles)
 
 -- <> mconcat
 --   ( map
