@@ -1,6 +1,10 @@
 {
     "rust-analyzer.linkedProjects": [
         "p1/Cargo.toml",
+        "p2/Cargo.toml",
+        "p3/Cargo.toml",
+        "p4/Cargo.toml",
+        "p5/Cargo.toml",
         "util/Cargo.toml"
     ]
 }

@@ -104,7 +104,8 @@ cucumberMoves :: IO ()
 cucumberMoves = do
   input <- readFile "input.txt"
   let grid = parseInput input
-   in -- in print (stepsUntilEqual grid)
-      print (stepsUntilEqual2 grid)
+   in print (stepsUntilEqual grid)
+
+-- print (stepsUntilEqual2 grid)
 
 -- <> print (stepsUntilEqual2 grid)

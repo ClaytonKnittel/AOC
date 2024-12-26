@@ -1,6 +1,6 @@
-name:                p25
+name:                test
 version:             0.1.0.0
-github:              "githubuser/p25"
+github:              "githubuser/test"
 license:             BSD-3-Clause
 author:              "Author name here"
 maintainer:          "example@example.com"
@@ -17,11 +17,10 @@ extra-source-files:
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/githubuser/p25#readme>
+description:         Please see the README on GitHub at <https://github.com/githubuser/test#readme>
 
 dependencies:
 - base >= 4.7 && < 5
-- mtl >= 2.2
 
 ghc-options:
 - -Wall
@@ -33,13 +32,12 @@ ghc-options:
 - -Wmissing-home-modules
 - -Wpartial-fields
 - -Wredundant-constraints
-- -O2
 
 library:
   source-dirs: src
 
 executables:
-  p25-exe:
+  test-exe:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
@@ -47,10 +45,10 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - p25
+    - test
 
 tests:
-  p25-test:
+  test-test:
     main:                Spec.hs
     source-dirs:         test
     ghc-options:
@@ -58,4 +56,4 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - p25
+    - test

@@ -98,6 +98,20 @@ stateAfterNSteps = stepN empty
         )
         (lookup state m)
 
+stateAfterNSteps2 :: (Ord a) => Integer -> (a -> a) -> a -> a
+stateAfterNSteps2 = flip stepN empty
+  where
+    stepN :: Integer -> Map a Integer -> (a -> a) -> a -> a
+    stepN =
+      bool
+        findOrCompute
+        -- If count is 0, return the third argument.
+        (const . const . const id)
+        . (== 0)
+        <*> id
+    findOrCompute :: Integer -> Map a Integer -> (a -> a) -> a -> a
+    findOrCompute = 0
+
 parseInput :: String -> Maybe [[Tile]]
 parseInput = mapM (mapM parseTile) . lines
 
