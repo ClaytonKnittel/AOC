@@ -75,7 +75,7 @@ impl ParseMachine {
         }
       }
       ParseState::FirstNum { digits } | ParseState::SecondNum { digits } => {
-        if !input.is_digit(10) {
+        if !input.is_ascii_digit() {
           if digits == 0 {
             self.state = ParseState::M;
           } else if let ParseState::FirstNum { digits: _ } = self.state {
@@ -228,7 +228,7 @@ impl ParseMachine2 {
         };
       }
       ParseState2::FirstNum { digits } | ParseState2::SecondNum { digits } => {
-        if !input.is_digit(10) {
+        if !input.is_ascii_digit() {
           if digits == 0 {
             self.state = ParseState2::M;
           } else if let ParseState2::FirstNum { digits: _ } = self.state {

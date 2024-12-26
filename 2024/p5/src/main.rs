@@ -30,9 +30,9 @@ impl RuleGraph {
         entry.get_mut().predecessors.push(pred);
       }
       Entry::Vacant(entry) => {
-        let mut predecessors = Vec::new();
-        predecessors.push(pred);
-        entry.insert(PageInfo { predecessors });
+        entry.insert(PageInfo {
+          predecessors: vec![pred],
+        });
       }
     }
   }
@@ -42,7 +42,7 @@ impl RuleGraph {
       .page_info
       .get(&page)
       .map(|page_info| page_info.predecessors.clone())
-      .unwrap_or(Vec::new())
+      .unwrap_or_default()
   }
 
   fn is_valid_print(&self, print: &Vec<u32>) -> bool {

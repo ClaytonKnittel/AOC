@@ -1,13 +1,13 @@
 use util::{algorithm::frequency_map, error::AocResult, parse::two_lists};
 
-fn sum_of_diffs(v1: &Vec<i32>, v2: &Vec<i32>) -> i32 {
+fn sum_of_diffs(v1: &[i32], v2: &[i32]) -> i32 {
   v1.iter()
     .zip(v2.iter())
     .map(|(&e1, &e2)| (e1 - e2).abs())
     .sum::<i32>()
 }
 
-fn similarity_score(v1: &Vec<i32>, v2: &Vec<i32>) -> i32 {
+fn similarity_score(v1: &[i32], v2: &[i32]) -> i32 {
   let s1 = frequency_map(v1);
   let s2 = frequency_map(v2);
   s1.iter()

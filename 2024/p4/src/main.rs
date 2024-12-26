@@ -64,7 +64,7 @@ fn main() -> AocResult {
   let n = grid.len() as i32;
   let m = grid[0].len() as i32;
 
-  let rows = grid.iter().map(|row| count_xmas(row)).sum::<u32>();
+  let rows = grid.iter().map(count_xmas).sum::<u32>();
   let cols = (0..m)
     .map(|col_idx| count_xmas((0..n).map(|row_idx| grid[row_idx as usize][col_idx as usize])))
     .sum::<u32>();
