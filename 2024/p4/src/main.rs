@@ -43,6 +43,21 @@ where
     .1
 }
 
+fn is_x_mas(letters: &[[char; 3]; 3]) -> bool {
+  let c1 = letters[0][0];
+  let c2 = letters[0][2];
+  let c3 = letters[2][0];
+  let c4 = letters[2][2];
+
+  let center = letters[1][1];
+
+  center == 'A'
+    && c1 != c4
+    && ((c1 == c2 && c3 == c4) || (c1 == c3 && c2 == c4))
+    && (c1 == 'M' || c4 == 'M')
+    && (c1 == 'S' || c4 == 'S')
+}
+
 fn main() -> AocResult {
   const INPUT_FILE: &str = "input.txt";
   let grid = list_of_chars(INPUT_FILE)?;
@@ -71,6 +86,34 @@ fn main() -> AocResult {
     .sum::<u32>();
 
   println!("{}", rows + cols + diag1 + diag2);
+
+  let x_mas = (0..(n as usize - 2))
+    .flat_map(|row_idx| {
+      let grid = &grid;
+      (0..(m as usize - 2)).filter(move |&col_idx| {
+        let grid = [
+          [
+            grid[row_idx][col_idx],
+            grid[row_idx][col_idx + 1],
+            grid[row_idx][col_idx + 2],
+          ],
+          [
+            grid[row_idx + 1][col_idx],
+            grid[row_idx + 1][col_idx + 1],
+            grid[row_idx + 1][col_idx + 2],
+          ],
+          [
+            grid[row_idx + 2][col_idx],
+            grid[row_idx + 2][col_idx + 1],
+            grid[row_idx + 2][col_idx + 2],
+          ],
+        ];
+        is_x_mas(&grid)
+      })
+    })
+    .count();
+
+  println!("{}", x_mas);
 
   Ok(())
 }
