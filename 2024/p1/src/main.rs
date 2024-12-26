@@ -1,30 +1,10 @@
-use std::{collections::HashMap, hash::Hash};
-
-use util::{error::AocResult, parse::two_lists};
+use util::{algorithm::frequency_map, error::AocResult, parse::two_lists};
 
 fn sum_of_diffs(v1: &Vec<i32>, v2: &Vec<i32>) -> i32 {
   v1.iter()
     .zip(v2.iter())
     .map(|(&e1, &e2)| (e1 - e2).abs())
     .sum::<i32>()
-}
-
-fn frequency_map<'a, T, I>(elems: I) -> HashMap<T, u32>
-where
-  T: Clone + PartialEq + Eq + Hash + 'a,
-  I: IntoIterator<Item = &'a T>,
-{
-  elems.into_iter().fold(HashMap::new(), |mut map, elem| {
-    match map.entry(elem.clone()) {
-      std::collections::hash_map::Entry::Occupied(mut entry) => {
-        *entry.get_mut() += 1;
-      }
-      std::collections::hash_map::Entry::Vacant(entry) => {
-        entry.insert(1);
-      }
-    };
-    map
-  })
 }
 
 fn similarity_score(v1: &Vec<i32>, v2: &Vec<i32>) -> i32 {
