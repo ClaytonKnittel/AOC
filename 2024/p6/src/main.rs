@@ -1,5 +1,6 @@
 use util::{error::AocResult, parse::list_of_chars};
 
+#[derive(Clone, Copy)]
 enum Direction {
   Up,
   Right,
@@ -18,40 +19,71 @@ impl Direction {
   }
 }
 
+struct DirectionMask {
+  mask: u8,
+}
+
+impl DirectionMask {
+  fn new() -> Self {
+    Self { mask: 0 }
+  }
+
+  fn empty(&self) -> bool {
+    self.mask == 0
+  }
+
+  fn mark(&mut self, direction: Direction) -> bool {
+    let old_mask = self.mask;
+    self.mask = old_mask
+      | match direction {
+        Direction::Up => 0x1,
+        Direction::Right => 0x2,
+        Direction::Down => 0x4,
+        Direction::Left => 0x8,
+      };
+
+    self.mask != old_mask
+  }
+}
+
+/// Returns Some(visited_tile_count) if the guard exited, or None if the guard was stuck in a loop.
 fn count_unique_spaces_helper(
-  mut grid: Vec<Vec<char>>,
+  grid: &[Vec<char>],
+  mut visited_tiles: Vec<Vec<DirectionMask>>,
   (width, height): (usize, usize),
   (row, col): (usize, usize),
   direction: Direction,
   mut visited_tile_count: u32,
-) -> u32 {
-  if grid[row][col] == '.' {
-    grid[row][col] = 'X';
+) -> Option<u32> {
+  if visited_tiles[row][col].empty() {
     visited_tile_count += 1;
+  }
+  if !visited_tiles[row][col].mark(direction) {
+    return None;
   }
 
   let (next_row, next_col) = match direction {
     Direction::Up => {
       if row == 0 {
-        return visited_tile_count;
+        return Some(visited_tile_count);
       }
       (row - 1, col)
     }
     Direction::Right => {
       if col == width - 1 {
-        return visited_tile_count;
+        return Some(visited_tile_count);
       }
       (row, col + 1)
     }
     Direction::Down => {
       if row == height - 1 {
-        return visited_tile_count;
+        return Some(visited_tile_count);
       }
       (row + 1, col)
     }
     Direction::Left => {
       if col == 0 {
-        return visited_tile_count;
+        return Some(visited_tile_count);
       }
       (row, col - 1)
     }
@@ -60,6 +92,7 @@ fn count_unique_spaces_helper(
   match grid[next_row][next_col] {
     '#' => count_unique_spaces_helper(
       grid,
+      visited_tiles,
       (width, height),
       (row, col),
       direction.rotate_right(),
@@ -67,6 +100,7 @@ fn count_unique_spaces_helper(
     ),
     _ => count_unique_spaces_helper(
       grid,
+      visited_tiles,
       (width, height),
       (next_row, next_col),
       direction,
@@ -75,9 +109,36 @@ fn count_unique_spaces_helper(
   }
 }
 
-fn count_unique_spaces(grid: Vec<Vec<char>>, pos: (usize, usize)) -> u32 {
-  let wh = (grid.len(), grid[0].len());
-  count_unique_spaces_helper(grid, wh, pos, Direction::Up, 1)
+fn count_unique_spaces(grid: &[Vec<char>], pos: (usize, usize)) -> Option<u32> {
+  let (width, height) = (grid.len(), grid[0].len());
+  count_unique_spaces_helper(
+    grid,
+    (0..width)
+      .map(|_| (0..height).map(|_| DirectionMask::new()).collect())
+      .collect(),
+    (width, height),
+    pos,
+    Direction::Up,
+    1,
+  )
+}
+
+fn count_cycles(grid: &[Vec<char>], pos: (usize, usize)) -> u32 {
+  let (width, height) = (grid.len(), grid[0].len());
+
+  (0..width)
+    .flat_map(|row_idx| {
+      (0..height).filter(move |&col_idx| {
+        if grid[row_idx][col_idx] != '.' {
+          return false;
+        }
+
+        let mut grid = grid.to_owned();
+        grid[row_idx][col_idx] = '#';
+        count_unique_spaces(&grid, pos).is_none()
+      })
+    })
+    .count() as u32
 }
 
 fn main() -> AocResult {
@@ -101,7 +162,11 @@ fn main() -> AocResult {
     .unwrap();
   println!("Start: {row}, {col}");
 
-  println!("Unique spaces: {}", count_unique_spaces(grid, (row, col)));
+  println!(
+    "Unique spaces: {:?}",
+    count_unique_spaces(&grid, (row, col))
+  );
+  println!("Cycle-causing tiles: {:?}", count_cycles(&grid, (row, col)));
 
   Ok(())
 }
