@@ -8,6 +8,7 @@
         "p6/Cargo.toml",
         "p7/Cargo.toml",
         "p8/Cargo.toml",
+        "p9/Cargo.toml",
         "util/Cargo.toml"
     ],
     "rust-analyzer.check.command": "clippy"
