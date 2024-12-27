@@ -1,10 +1,9 @@
 use std::{
   fs::File,
   io::{BufRead, BufReader},
-  iter::successors,
 };
 
-use util::{error::AocResult, parse::parse_list};
+use util::{error::AocResult, math::digit_count, parse::parse_list};
 
 struct Equation {
   result: u64,
@@ -13,8 +12,7 @@ struct Equation {
 
 impl Equation {
   fn concat(l: u64, r: u64) -> u64 {
-    let r_digits = successors(Some(r), |&n| (n >= 10).then_some(n / 10)).count() as u32;
-    l * 10u64.pow(r_digits) + r
+    l * 10u64.pow(digit_count(r)) + r
   }
 
   fn solve_helper(result: u64, current: u64, inputs: &[u64]) -> bool {

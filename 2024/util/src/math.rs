@@ -1,3 +1,5 @@
+use std::iter::successors;
+
 use num_traits::PrimInt;
 
 pub fn gcd<T>(a: T, b: T) -> T
@@ -11,6 +13,14 @@ where
   } else {
     gcd(b, a % b)
   }
+}
+
+pub fn digit_count<T>(num: T) -> u32
+where
+  T: PrimInt,
+{
+  let ten = T::from(10).unwrap();
+  successors(Some(num), |&n| (n >= ten).then_some(n / ten)).count() as u32
 }
 
 #[cfg(test)]
