@@ -85,23 +85,21 @@ impl ParseMachine {
             self.state = ParseState::CloseParen;
             self = self.advance(input);
           }
+        } else if digits == 3 {
+          self.state = ParseState::M;
         } else {
-          if digits == 3 {
-            self.state = ParseState::M;
-          } else {
-            let num = match &mut self.state {
-              ParseState::FirstNum { digits } => {
-                *digits += 1;
-                &mut self.first_num
-              }
-              ParseState::SecondNum { digits } => {
-                *digits += 1;
-                &mut self.second_num
-              }
-              _ => unreachable!(),
-            };
-            *num = (10 * *num) + input.to_digit(10).unwrap();
-          }
+          let num = match &mut self.state {
+            ParseState::FirstNum { digits } => {
+              *digits += 1;
+              &mut self.first_num
+            }
+            ParseState::SecondNum { digits } => {
+              *digits += 1;
+              &mut self.second_num
+            }
+            _ => unreachable!(),
+          };
+          *num = (10 * *num) + input.to_digit(10).unwrap();
         }
       }
     }
@@ -238,23 +236,21 @@ impl ParseMachine2 {
             self.state = ParseState2::CloseParen;
             self = self.advance(input);
           }
+        } else if digits == 3 {
+          self.state = ParseState2::M;
         } else {
-          if digits == 3 {
-            self.state = ParseState2::M;
-          } else {
-            let num = match &mut self.state {
-              ParseState2::FirstNum { digits } => {
-                *digits += 1;
-                &mut self.first_num
-              }
-              ParseState2::SecondNum { digits } => {
-                *digits += 1;
-                &mut self.second_num
-              }
-              _ => unreachable!(),
-            };
-            *num = (10 * *num) + input.to_digit(10).unwrap();
-          }
+          let num = match &mut self.state {
+            ParseState2::FirstNum { digits } => {
+              *digits += 1;
+              &mut self.first_num
+            }
+            ParseState2::SecondNum { digits } => {
+              *digits += 1;
+              &mut self.second_num
+            }
+            _ => unreachable!(),
+          };
+          *num = (10 * *num) + input.to_digit(10).unwrap();
         }
       }
     }
