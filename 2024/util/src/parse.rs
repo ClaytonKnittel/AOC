@@ -4,7 +4,10 @@ use std::{
   str::FromStr,
 };
 
-use crate::error::{AocError, AocResult};
+use crate::{
+  error::{AocError, AocResult},
+  grid::Grid,
+};
 
 pub fn list_of_strings(path: &str) -> io::Result<impl Iterator<Item = io::Result<String>>> {
   Ok(io::BufReader::new(File::open(path)?).lines())
@@ -78,4 +81,13 @@ pub fn list_of_chars(path: &str) -> AocResult<Vec<Vec<char>>> {
     lists.push(line?.chars().collect());
     Ok(lists)
   })
+}
+
+pub fn parse_grid(path: &str) -> AocResult<Grid> {
+  Ok(Grid::new(
+    list_of_chars(path)?
+      .into_iter()
+      .map(|row| row.into_iter().map(|c| c as u8).collect())
+      .collect(),
+  ))
 }
