@@ -22,7 +22,7 @@ where
         .split_whitespace()
         .map(|num| num.parse::<I>())
         .collect::<Result<Vec<I>, _>>()?;
-      if x.len() != 0 {
+      if !x.is_empty() {
         if x.len() != 2 {
           return Err(
             AocError::Parse(format!("Expected 2 integers in a line, found {}", x.len())).into(),
