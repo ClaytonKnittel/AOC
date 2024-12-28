@@ -65,10 +65,6 @@ fn quadrant(pos: Pos, width: usize, height: usize) -> Option<usize> {
   }
 }
 
-trait T: Sized {}
-
-impl T for Robot {}
-
 fn quadrant_product<I, R>(robots: I, steps: u64, width: usize, height: usize) -> u64
 where
   I: IntoIterator<Item = R>,
