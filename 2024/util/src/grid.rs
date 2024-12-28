@@ -1,4 +1,8 @@
-use std::{borrow::Borrow, fmt::Display, ops::Index};
+use std::{
+  borrow::Borrow,
+  fmt::Display,
+  ops::{Add, Index, Mul, Sub},
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Pos {
@@ -6,9 +10,82 @@ pub struct Pos {
   pub col: usize,
 }
 
+impl Pos {
+  pub fn zero() -> Self {
+    Pos { row: 0, col: 0 }
+  }
+}
+
+impl Add<Diff> for Pos {
+  type Output = Self;
+
+  fn add(self, rhs: Diff) -> Self::Output {
+    Self {
+      row: (self.row as isize + rhs.dr) as usize,
+      col: (self.col as isize + rhs.dc) as usize,
+    }
+  }
+}
+
+impl Sub for Pos {
+  type Output = Diff;
+
+  fn sub(self, rhs: Self) -> Self::Output {
+    Diff {
+      dr: self.row as isize - rhs.row as isize,
+      dc: self.col as isize - rhs.col as isize,
+    }
+  }
+}
+
+impl Sub<Diff> for Pos {
+  type Output = Pos;
+
+  fn sub(self, rhs: Diff) -> Self::Output {
+    Pos {
+      row: self.row - rhs.dr as usize,
+      col: self.col - rhs.dc as usize,
+    }
+  }
+}
+
 impl Display for Pos {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(f, "({}, {})", self.row, self.col)
+  }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct Diff {
+  pub dr: isize,
+  pub dc: isize,
+}
+
+impl Add for Diff {
+  type Output = Self;
+
+  fn add(self, rhs: Self) -> Self::Output {
+    Self {
+      dr: self.dr + rhs.dr,
+      dc: self.dc + rhs.dc,
+    }
+  }
+}
+
+impl Mul<Diff> for isize {
+  type Output = Diff;
+
+  fn mul(self, rhs: Diff) -> Self::Output {
+    Diff {
+      dr: self * rhs.dr,
+      dc: self * rhs.dc,
+    }
+  }
+}
+
+impl Display for Diff {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "({}, {})", self.dr, self.dc)
   }
 }
 
