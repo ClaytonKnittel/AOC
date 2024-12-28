@@ -15,6 +15,14 @@ where
   }
 }
 
+/// Returns the mathematical modulus n % modulus (i.e. -2 % 10 == 8).
+pub fn modulus<T>(n: T, modulus: T) -> T
+where
+  T: PrimInt,
+{
+  ((n % modulus) + modulus) % modulus
+}
+
 pub fn digit_count<T>(num: T) -> u32
 where
   T: PrimInt,

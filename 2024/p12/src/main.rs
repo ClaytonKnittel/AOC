@@ -75,7 +75,7 @@ fn discount_fence_price(grid: &Grid) -> u32 {
         col: pos.col - 1,
       }] == plant;
     let top_right_neighbor = pos.row != 0
-      && pos.col != grid.width() - 1
+      && pos.col != grid.width() as isize - 1
       && grid[Pos {
         row: pos.row - 1,
         col: pos.col + 1,

@@ -47,30 +47,30 @@ impl ClawConfig {
 
     // Binary search for correct ratio of steeper to shallower. Steeper has a
     // greater dr / dc ratio, so dr will always be the "limiting factor".
-    let max_steeper = self.prize.row / (steeper.dr as usize);
+    let max_steeper = self.prize.row / steeper.dr;
     let mut low = 0;
     let mut high = max_steeper + 1;
     while low + 1 != high {
       let mid = (low + high) / 2;
 
       // Compare slopes of (target - mid * steeper) and shallower.
-      let steeper_ray = (mid as isize) * steeper;
-      if steeper_ray.dr as usize >= self.prize.row || steeper_ray.dc as usize >= self.prize.col {
+      let steeper_ray = mid * steeper;
+      if steeper_ray.dr >= self.prize.row || steeper_ray.dc >= self.prize.col {
         high = mid;
         continue;
       }
       let remainder = self.prize - steeper_ray;
 
       // If remainder is steeper than shallower, then `mid` is too low.
-      if remainder.row * (shallower.dc as usize) >= (shallower.dr as usize) * remainder.col {
+      if remainder.row * shallower.dc >= shallower.dr * remainder.col {
         low = mid;
       } else {
         high = mid;
       }
     }
 
-    let steeper_ray = (low as isize) * steeper;
-    let shallower_count = (self.prize.col as isize - steeper_ray.dc) / shallower.dc;
+    let steeper_ray = low * steeper;
+    let shallower_count = (self.prize.col - steeper_ray.dc) / shallower.dc;
 
     (Pos::zero() + steeper_ray + shallower_count * shallower == self.prize).then_some(
       low as u64

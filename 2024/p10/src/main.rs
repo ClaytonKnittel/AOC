@@ -65,7 +65,10 @@ fn sum_of_trailhead_scores(grid: &Grid) -> u64 {
   let mut total_score = 0;
   for row in 0..grid.height() {
     for col in 0..grid.width() {
-      let pos = Pos { row, col };
+      let pos = Pos {
+        row: row as isize,
+        col: col as isize,
+      };
       if grid[pos] == b'0' {
         total_score += trailhead_score(grid, pos);
       }
@@ -79,7 +82,10 @@ fn sum_of_trailhead_ratings(grid: &Grid) -> u64 {
   let mut total_rating = 0;
   for row in 0..grid.height() {
     for col in 0..grid.width() {
-      let pos = Pos { row, col };
+      let pos = Pos {
+        row: row as isize,
+        col: col as isize,
+      };
       if grid[pos] == b'0' {
         total_rating += trailhead_rating(grid, pos);
       }

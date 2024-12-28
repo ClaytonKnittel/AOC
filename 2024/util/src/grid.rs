@@ -6,8 +6,8 @@ use std::{
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Pos {
-  pub row: usize,
-  pub col: usize,
+  pub row: isize,
+  pub col: isize,
 }
 
 impl Pos {
@@ -21,8 +21,8 @@ impl Add<Diff> for Pos {
 
   fn add(self, rhs: Diff) -> Self::Output {
     Self {
-      row: (self.row as isize + rhs.dr) as usize,
-      col: (self.col as isize + rhs.dc) as usize,
+      row: self.row + rhs.dr,
+      col: self.col + rhs.dc,
     }
   }
 }
@@ -32,8 +32,8 @@ impl Sub for Pos {
 
   fn sub(self, rhs: Self) -> Self::Output {
     Diff {
-      dr: self.row as isize - rhs.row as isize,
-      dc: self.col as isize - rhs.col as isize,
+      dr: self.row - rhs.row,
+      dc: self.col - rhs.col,
     }
   }
 }
@@ -43,8 +43,8 @@ impl Sub<Diff> for Pos {
 
   fn sub(self, rhs: Diff) -> Self::Output {
     Pos {
-      row: self.row - rhs.dr as usize,
-      col: self.col - rhs.dc as usize,
+      row: self.row - rhs.dr,
+      col: self.col - rhs.dc,
     }
   }
 }
@@ -112,11 +112,11 @@ impl Grid {
         row: pos.row.wrapping_sub(1),
         ..pos
       }),
-      (pos.col != self.width() - 1).then_some(Pos {
+      (pos.col != self.width() as isize - 1).then_some(Pos {
         col: pos.col + 1,
         ..pos
       }),
-      (pos.row != self.height() - 1).then_some(Pos {
+      (pos.row != self.height() as isize - 1).then_some(Pos {
         row: pos.row + 1,
         ..pos
       }),
@@ -145,7 +145,12 @@ impl Grid {
   }
 
   pub fn positions(&self) -> impl Iterator<Item = Pos> + '_ {
-    (0..self.height()).flat_map(|row| (0..self.width()).map(move |col| Pos { row, col }))
+    (0..self.height()).flat_map(|row| {
+      (0..self.width()).map(move |col| Pos {
+        row: row as isize,
+        col: col as isize,
+      })
+    })
   }
 
   pub fn iter(&self) -> impl Iterator<Item = (Pos, u8)> + '_ {
@@ -153,8 +158,8 @@ impl Grid {
       row.iter().enumerate().map(move |(col_idx, &tile)| {
         (
           Pos {
-            row: row_idx,
-            col: col_idx,
+            row: row_idx as isize,
+            col: col_idx as isize,
           },
           tile,
         )
@@ -170,6 +175,6 @@ where
   type Output = u8;
 
   fn index(&self, index: P) -> &Self::Output {
-    &self.grid[index.borrow().row][index.borrow().col]
+    &self.grid[index.borrow().row as usize][index.borrow().col as usize]
   }
 }

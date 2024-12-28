@@ -83,6 +83,16 @@ pub fn list_of_chars(path: &str) -> AocResult<Vec<Vec<char>>> {
   })
 }
 
+pub fn list_of_objects<T>(path: &str) -> AocResult<Vec<T>>
+where
+  T: FromStr,
+  Box<dyn std::error::Error>: From<<T as FromStr>::Err>,
+{
+  list_of_strings(path)?
+    .map(|line| -> AocResult<_> { line?.parse().map_err(Box::from) })
+    .collect::<Result<Vec<T>, _>>()
+}
+
 pub fn parse_grid(path: &str) -> AocResult<Grid> {
   Ok(Grid::new(
     list_of_chars(path)?
