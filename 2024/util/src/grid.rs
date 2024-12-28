@@ -51,6 +51,39 @@ impl Grid {
     .into_iter()
     .flatten()
   }
+
+  pub fn top_left_orthogonal_neighbors(&self, pos: Pos) -> impl Iterator<Item = Pos> {
+    [
+      (pos.row != 0).then_some(Pos {
+        row: pos.row.wrapping_sub(1),
+        ..pos
+      }),
+      (pos.col != 0).then_some(Pos {
+        col: pos.col.wrapping_sub(1),
+        ..pos
+      }),
+    ]
+    .into_iter()
+    .flatten()
+  }
+
+  pub fn positions(&self) -> impl Iterator<Item = Pos> + '_ {
+    (0..self.height()).flat_map(|row| (0..self.width()).map(move |col| Pos { row, col }))
+  }
+
+  pub fn iter(&self) -> impl Iterator<Item = (Pos, u8)> + '_ {
+    self.grid.iter().enumerate().flat_map(|(row_idx, row)| {
+      row.iter().enumerate().map(move |(col_idx, &tile)| {
+        (
+          Pos {
+            row: row_idx,
+            col: col_idx,
+          },
+          tile,
+        )
+      })
+    })
+  }
 }
 
 impl<P> Index<P> for Grid
