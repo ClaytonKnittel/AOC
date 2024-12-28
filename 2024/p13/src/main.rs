@@ -19,10 +19,21 @@ struct ClawConfig {
 }
 
 impl ClawConfig {
-  const A_COST: u32 = 3;
-  const B_COST: u32 = 1;
+  const A_COST: u64 = 3;
+  const B_COST: u64 = 1;
 
-  fn min_cost(&self) -> Option<u32> {
+  fn correct_for_conversion_error(&self) -> Self {
+    Self {
+      prize: self.prize
+        + Diff {
+          dr: 10000000000000,
+          dc: 10000000000000,
+        },
+      ..*self
+    }
+  }
+
+  fn min_cost(&self) -> Option<u64> {
     if self.a.dc * self.b.dr == self.a.dr * self.b.dc {
       unreachable!();
     }
@@ -62,13 +73,13 @@ impl ClawConfig {
     let shallower_count = (self.prize.col as isize - steeper_ray.dc) / shallower.dc;
 
     (Pos::zero() + steeper_ray + shallower_count * shallower == self.prize).then_some(
-      low as u32
+      low as u64
         * if a_steeper {
           Self::A_COST
         } else {
           Self::B_COST
         }
-        + (shallower_count as u32)
+        + (shallower_count as u64)
           * if a_steeper {
             Self::B_COST
           } else {
@@ -120,8 +131,14 @@ fn main() -> AocResult {
     .map(|claw_str| claw_str.parse::<ClawConfig>())
     .collect::<AocResult<Vec<_>>>()?;
 
-  let min_cost = claws.iter().flat_map(|claw| claw.min_cost()).sum::<u32>();
+  let min_cost = claws.iter().flat_map(|claw| claw.min_cost()).sum::<u64>();
   println!("Min cost: {min_cost}");
+
+  let min_costwith_correction = claws
+    .iter()
+    .flat_map(|claw| claw.correct_for_conversion_error().min_cost())
+    .sum::<u64>();
+  println!("Min cost with correction: {min_costwith_correction}");
 
   Ok(())
 }
