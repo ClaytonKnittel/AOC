@@ -257,10 +257,6 @@ where
     .flatten()
   }
 
-  fn is_quine(&self) -> bool {
-    self.program.iter().copied().eq(self.clone().run())
-  }
-
   fn find_quine_helper(
     computer: Computer,
     orig_program: &Vec<u8>,
