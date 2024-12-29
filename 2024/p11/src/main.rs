@@ -1,8 +1,4 @@
-use std::{
-  collections::HashMap,
-  fs::File,
-  io::{BufReader, Read},
-};
+use std::{collections::HashMap, fs::read_to_string};
 
 use util::{error::AocResult, math::digit_count, parse::parse_list};
 
@@ -42,9 +38,7 @@ fn count_splits(stones: &[u64], depth: u32) -> u64 {
 
 fn main() -> AocResult {
   const INPUT_FILE: &str = "input.txt";
-  let mut line = String::new();
-  BufReader::new(File::open(INPUT_FILE)?).read_to_string(&mut line)?;
-  let stones = parse_list::<u64>(&line)?;
+  let stones = parse_list::<u64>(&read_to_string(INPUT_FILE)?)?;
 
   let total_stones = count_splits(&stones, 25);
   println!("Total stones after 25 splits: {total_stones}");

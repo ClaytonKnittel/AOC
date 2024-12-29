@@ -1,8 +1,7 @@
 use std::{
   borrow::Borrow,
   fmt::{self, Display, Formatter},
-  fs::File,
-  io::{BufReader, Read},
+  fs::read_to_string,
   iter::successors,
 };
 
@@ -221,8 +220,7 @@ impl Display for Warehouse {
 
 fn main() -> AocResult {
   const INPUT_FILE: &str = "input.txt";
-  let mut contents = String::new();
-  BufReader::new(File::open(INPUT_FILE)?).read_to_string(&mut contents)?;
+  let contents = read_to_string(INPUT_FILE)?;
   let (warehouse_str, steps_str) = contents
     .split_once("\n\n")
     .ok_or_else(|| AocError::Parse("No blank line found in file".to_owned()))?;

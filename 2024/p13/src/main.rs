@@ -1,9 +1,4 @@
-use std::{
-  error::Error,
-  fs::File,
-  io::{BufReader, Read},
-  str::FromStr,
-};
+use std::{error::Error, fs::read_to_string, str::FromStr};
 
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -123,10 +118,8 @@ impl FromStr for ClawConfig {
 
 fn main() -> AocResult {
   const INPUT_FILE: &str = "input.txt";
-  let mut file = String::new();
-  BufReader::new(File::open(INPUT_FILE)?).read_to_string(&mut file)?;
 
-  let claws = file
+  let claws = read_to_string(INPUT_FILE)?
     .split("\n\n")
     .map(|claw_str| claw_str.parse::<ClawConfig>())
     .collect::<AocResult<Vec<_>>>()?;

@@ -1,7 +1,6 @@
 use std::{
   collections::{BTreeSet, HashSet},
-  fs::File,
-  io::{BufReader, Read},
+  fs::read_to_string,
 };
 
 use util::{
@@ -46,9 +45,7 @@ fn main() -> AocResult {
     row: HEIGHT as isize - 1,
   };
 
-  let mut input_str = String::new();
-  BufReader::new(File::open(INPUT_FILE)?).read_to_string(&mut input_str)?;
-  let byte_coords: Vec<_> = input_str
+  let byte_coords: Vec<_> = read_to_string(INPUT_FILE)?
     .lines()
     .map(|line| {
       let (col, row) = line

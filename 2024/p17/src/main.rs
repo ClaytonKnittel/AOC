@@ -1,11 +1,4 @@
-use std::{
-  error::Error,
-  fs::File,
-  io::{BufReader, Read},
-  iter::successors,
-  marker::PhantomData,
-  str::FromStr,
-};
+use std::{error::Error, fs::read_to_string, iter::successors, marker::PhantomData, str::FromStr};
 
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -323,9 +316,7 @@ type DefaultProgram = ProgramState<Adv, Bxl, Bst, Jnz, Bxc, Out, Bdv, Cdv>;
 
 fn main() -> AocResult {
   const INPUT_FILE: &str = "input.txt";
-  let mut program_str = String::new();
-  BufReader::new(File::open(INPUT_FILE)?).read_to_string(&mut program_str)?;
-  let program: DefaultProgram = program_str.parse()?;
+  let program: DefaultProgram = read_to_string(INPUT_FILE)?.parse()?;
 
   let output = program
     .clone()
