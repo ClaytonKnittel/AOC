@@ -3,6 +3,7 @@ use std::{
   fs::File,
   io::{BufReader, Read},
   iter::successors,
+  marker::PhantomData,
   str::FromStr,
 };
 
@@ -29,7 +30,7 @@ enum OutputDestination {
 }
 
 trait Instruction {
-  fn execute(computer: &mut Computer, operand: u8) -> Option<u64>;
+  fn execute(computer: &mut Computer, operand: u8) -> Option<u8>;
 }
 
 trait NumericInstruction {
@@ -39,7 +40,7 @@ trait NumericInstruction {
 }
 
 impl<T: NumericInstruction> Instruction for T {
-  fn execute(computer: &mut Computer, operand: u8) -> Option<u64> {
+  fn execute(computer: &mut Computer, operand: u8) -> Option<u8> {
     let output = Self::execute(computer, operand);
     computer.pc += 2;
 
@@ -56,7 +57,7 @@ impl<T: NumericInstruction> Instruction for T {
         computer.c = output;
         None
       }
-      OutputDestination::Console => Some(output & 0x7),
+      OutputDestination::Console => Some((output & 0x7) as u8),
     }
   }
 }
@@ -141,7 +142,7 @@ impl CpuInstruction for Bst {
 
 struct Jnz {}
 impl Instruction for Jnz {
-  fn execute(computer: &mut Computer, operand: u8) -> Option<u64> {
+  fn execute(computer: &mut Computer, operand: u8) -> Option<u8> {
     if computer.a == 0 {
       computer.pc += 2;
     } else {
@@ -169,7 +170,7 @@ impl NumericInstruction for Out {
   }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct Computer {
   a: u64,
   b: u64,
@@ -189,12 +190,14 @@ impl Computer {
   }
 }
 
-struct ProgramState {
+struct ProgramState<I0, I1, I2, I3, I4, I5, I6, I7> {
   computer: Computer,
   program: Vec<u8>,
+  #[allow(clippy::type_complexity)]
+  _phony: PhantomData<(I0, I1, I2, I3, I4, I5, I6, I7)>,
 }
 
-impl FromStr for ProgramState {
+impl<I0, I1, I2, I3, I4, I5, I6, I7> FromStr for ProgramState<I0, I1, I2, I3, I4, I5, I6, I7> {
   type Err = Box<dyn Error>;
 
   fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -207,7 +210,7 @@ impl FromStr for ProgramState {
       .captures(s)
       .ok_or_else(|| AocError::Parse(format!("Failed to parse as ProgramState: {s}")))?;
 
-    Ok(ProgramState {
+    Ok(Self {
       computer: Computer {
         a: captures[1].parse()?,
         b: captures[2].parse()?,
@@ -218,22 +221,23 @@ impl FromStr for ProgramState {
         .split(',')
         .map(|instruction_str| instruction_str.parse())
         .collect::<Result<_, _>>()?,
+      _phony: PhantomData,
     })
   }
 }
 
-impl ProgramState {
-  fn run<I0, I1, I2, I3, I4, I5, I6, I7>(&mut self) -> impl Iterator<Item = u64> + '_
-  where
-    I0: Instruction,
-    I1: Instruction,
-    I2: Instruction,
-    I3: Instruction,
-    I4: Instruction,
-    I5: Instruction,
-    I6: Instruction,
-    I7: Instruction,
-  {
+impl<I0, I1, I2, I3, I4, I5, I6, I7> ProgramState<I0, I1, I2, I3, I4, I5, I6, I7>
+where
+  I0: Instruction,
+  I1: Instruction,
+  I2: Instruction,
+  I3: Instruction,
+  I4: Instruction,
+  I5: Instruction,
+  I6: Instruction,
+  I7: Instruction,
+{
+  fn run(&mut self) -> impl Iterator<Item = u8> + '_ {
     successors(Some(None), |_| {
       (self.computer.pc < self.program.len()).then(|| {
         let pc = self.computer.pc;
@@ -252,20 +256,91 @@ impl ProgramState {
     })
     .flatten()
   }
+
+  fn is_quine(&self) -> bool {
+    self.program.iter().copied().eq(self.clone().run())
+  }
+
+  fn find_quine_helper(
+    computer: Computer,
+    orig_program: &Vec<u8>,
+    target_program: &[u8],
+  ) -> Option<u64> {
+    if target_program.is_empty() {
+      return Some(computer.a);
+    }
+
+    let target_out = target_program[target_program.len() - 1];
+    (0..8).find_map(|next_3| {
+      let computer = Computer {
+        a: (computer.a << 3) | next_3,
+        ..computer
+      };
+      let mut program = Self {
+        computer: computer.clone(),
+        program: orig_program.clone(),
+        _phony: PhantomData,
+      };
+
+      if program.run().next() == Some(target_out) {
+        Self::find_quine_helper(
+          computer.clone(),
+          orig_program,
+          &target_program[..(target_program.len() - 1)],
+        )
+      } else {
+        None
+      }
+    })
+  }
+
+  fn find_quine_modifying_a(&self) -> u64 {
+    let mut local_program = self.clone();
+    // Remove last instruction (the jump).
+    local_program.program.pop();
+    local_program.program.pop();
+
+    // Derive the instruction opcodes backwards
+    Self::find_quine_helper(
+      Computer {
+        a: 0,
+        ..self.computer
+      },
+      &self.program,
+      &self.program,
+    )
+    .unwrap()
+  }
 }
+
+impl<I0, I1, I2, I3, I4, I5, I6, I7> Clone for ProgramState<I0, I1, I2, I3, I4, I5, I6, I7> {
+  fn clone(&self) -> Self {
+    Self {
+      computer: self.computer.clone(),
+      program: self.program.clone(),
+      _phony: PhantomData,
+    }
+  }
+}
+
+type DefaultProgram = ProgramState<Adv, Bxl, Bst, Jnz, Bxc, Out, Bdv, Cdv>;
 
 fn main() -> AocResult {
   const INPUT_FILE: &str = "input.txt";
   let mut program_str = String::new();
   BufReader::new(File::open(INPUT_FILE)?).read_to_string(&mut program_str)?;
-  let mut program = program_str.parse::<ProgramState>()?;
+  let program: DefaultProgram = program_str.parse()?;
 
   let output = program
-    .run::<Adv, Bxl, Bst, Jnz, Bxc, Out, Bdv, Cdv>()
-    .map(|output: u64| output.to_string())
+    .clone()
+    .run()
+    .map(|output| output.to_string())
     .collect::<Vec<_>>()
     .join(",");
   println!("Output: {output}");
+
+  let quine_a = program.find_quine_modifying_a();
+  println!("Quine A: {quine_a}");
 
   Ok(())
 }

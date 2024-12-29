@@ -1,0 +1,13 @@
+2,4, 1,6, 7,5, 4,6, 1,4, 5,5, 0,3, 3,0
+
+0b010
+
+B = 0b100
+
+bst B = A % 0x8
+bxl B = B ^ 0x6
+cdv C = A >> B
+bxc B = B | C
+bxl B = B ^ 0x4
+out B % 0x8
+adv A = A >> 3
