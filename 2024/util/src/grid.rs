@@ -117,6 +117,10 @@ impl Grid {
     &self.grid
   }
 
+  pub fn in_bounds(&self, pos: Pos) -> bool {
+    (0..self.width() as isize).contains(&pos.col) && (0..self.height() as isize).contains(&pos.row)
+  }
+
   pub fn find_and_replace(&mut self, target: u8, replace: u8) -> Option<Pos> {
     self.grid.iter_mut().enumerate().find_map(|(row_idx, row)| {
       row.iter_mut().enumerate().find_map(|(col_idx, element)| {
