@@ -1,6 +1,6 @@
 use crate::grid::Diff;
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Direction {
   Up,
   Right,
