@@ -1,23 +1,4 @@
-use util::{error::AocResult, parse::list_of_chars};
-
-#[derive(Clone, Copy)]
-enum Direction {
-  Up,
-  Right,
-  Down,
-  Left,
-}
-
-impl Direction {
-  fn rotate_right(self) -> Self {
-    match self {
-      Direction::Up => Direction::Right,
-      Direction::Right => Direction::Down,
-      Direction::Down => Direction::Left,
-      Direction::Left => Direction::Up,
-    }
-  }
-}
+use util::{direction::Direction, error::AocResult, parse::list_of_chars};
 
 struct DirectionMask {
   mask: u8,

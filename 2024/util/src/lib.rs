@@ -1,4 +1,5 @@
 pub mod algorithm;
+pub mod direction;
 pub mod error;
 pub mod grid;
 pub mod math;

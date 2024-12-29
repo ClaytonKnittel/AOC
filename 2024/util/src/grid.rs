@@ -1,7 +1,7 @@
 use std::{
   borrow::Borrow,
   fmt::Display,
-  ops::{Add, Index, Mul, Sub},
+  ops::{Add, AddAssign, Index, IndexMut, Mul, Sub},
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -24,6 +24,12 @@ impl Add<Diff> for Pos {
       row: self.row + rhs.dr,
       col: self.col + rhs.dc,
     }
+  }
+}
+
+impl AddAssign<Diff> for Pos {
+  fn add_assign(&mut self, rhs: Diff) {
+    *self = *self + rhs
   }
 }
 
@@ -89,6 +95,7 @@ impl Display for Diff {
   }
 }
 
+#[derive(Clone)]
 pub struct Grid {
   grid: Vec<Vec<u8>>,
 }
@@ -104,6 +111,20 @@ impl Grid {
 
   pub fn height(&self) -> usize {
     self.grid.len()
+  }
+
+  pub fn find_and_replace(&mut self, target: u8, replace: u8) -> Option<Pos> {
+    self.grid.iter_mut().enumerate().find_map(|(row_idx, row)| {
+      row.iter_mut().enumerate().find_map(|(col_idx, element)| {
+        (*element == target).then(|| {
+          *element = replace;
+          Pos {
+            row: row_idx as isize,
+            col: col_idx as isize,
+          }
+        })
+      })
+    })
   }
 
   pub fn orthogonal_neighbors(&self, pos: Pos) -> impl Iterator<Item = Pos> {
@@ -176,5 +197,25 @@ where
 
   fn index(&self, index: P) -> &Self::Output {
     &self.grid[index.borrow().row as usize][index.borrow().col as usize]
+  }
+}
+
+impl<P> IndexMut<P> for Grid
+where
+  P: Borrow<Pos>,
+{
+  fn index_mut(&mut self, index: P) -> &mut Self::Output {
+    &mut self.grid[index.borrow().row as usize][index.borrow().col as usize]
+  }
+}
+
+impl Display for Grid {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    self.grid.iter().try_fold((), |_, row| {
+      row
+        .iter()
+        .try_fold((), |_, &tile| write!(f, "{}", tile as char))
+        .and_then(|_| writeln!(f))
+    })
   }
 }

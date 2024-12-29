@@ -7,12 +7,14 @@ use std::{
 #[derive(Debug)]
 pub enum AocError {
   Parse(String),
+  Runtime(String),
 }
 
 impl Display for AocError {
   fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     match self {
       AocError::Parse(msg) => write!(f, "Parse error: {msg}"),
+      AocError::Runtime(msg) => write!(f, "Runtime error: {msg}"),
     }
   }
 }
