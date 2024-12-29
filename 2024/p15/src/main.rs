@@ -11,7 +11,7 @@ use util::{
   grid::{Diff, Grid, Pos},
 };
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum Move {
   Up,
   Right,
@@ -40,6 +40,7 @@ impl Move {
   }
 }
 
+#[derive(Clone)]
 struct Warehouse {
   grid: Grid,
   pos: Pos,
@@ -62,12 +63,43 @@ impl Warehouse {
     })
   }
 
+  fn with_split(&self) -> Self {
+    let pos = Pos {
+      col: 2 * self.pos.col,
+      row: self.pos.row,
+    };
+    Warehouse {
+      grid: Grid::new(
+        self
+          .grid
+          .data()
+          .iter()
+          .map(|row| {
+            row
+              .iter()
+              .flat_map(|&tile| {
+                match tile {
+                  b'#' => [b'#', b'#'],
+                  b'.' => [b'.', b'.'],
+                  b'O' => [b'[', b']'],
+                  _ => unreachable!(),
+                }
+                .into_iter()
+              })
+              .collect()
+          })
+          .collect(),
+      ),
+      pos,
+    }
+  }
+
   fn sum_of_coordinates(&self) -> u64 {
     self
       .grid
       .iter()
       .map(|(pos, tile)| {
-        if tile == b'O' {
+        if tile == b'O' || tile == b'[' {
           (100 * pos.row + pos.col) as u64
         } else {
           0
@@ -112,6 +144,71 @@ impl Warehouse {
     self.make_move(*m.borrow())?;
     Ok(self)
   }
+
+  fn can_do_split_move(&self, pos: Pos, m: Move) -> bool {
+    let delta = m.delta();
+    match (self.grid[pos], m) {
+      (b'[', Move::Right) | (b']', Move::Left) => self.can_do_split_move(pos + 2 * delta, m),
+      (b'[', Move::Down | Move::Up) => {
+        self.can_do_split_move(pos + delta, m)
+          && self.can_do_split_move(pos + delta + Diff { dc: 1, dr: 0 }, m)
+      }
+      (b']', Move::Down | Move::Up) => {
+        self.can_do_split_move(pos + delta, m)
+          && self.can_do_split_move(pos + delta + Diff { dc: -1, dr: 0 }, m)
+      }
+      (b'.', _) => true,
+      (b'#', _) => false,
+      _ => unreachable!(),
+    }
+  }
+
+  fn do_make_split_move(&mut self, pos: Pos, m: Move) {
+    let delta = m.delta();
+    match (self.grid[pos], m) {
+      (b'[', Move::Right) | (b']', Move::Left) => {
+        self.do_make_split_move(pos + 2 * delta, m);
+        self.grid[pos] = b'.';
+        self.grid[pos + delta] = if m == Move::Left { b']' } else { b'[' };
+        self.grid[pos + 2 * delta] = if m == Move::Left { b'[' } else { b']' };
+      }
+      (b'[', Move::Down | Move::Up) => {
+        self.do_make_split_move(pos + delta, m);
+        self.do_make_split_move(pos + delta + Diff { dc: 1, dr: 0 }, m);
+        self.grid[pos + delta] = b'[';
+        self.grid[pos + delta + Diff { dc: 1, dr: 0 }] = b']';
+        self.grid[pos] = b'.';
+        self.grid[pos + Diff { dc: 1, dr: 0 }] = b'.';
+      }
+      (b']', Move::Down | Move::Up) => {
+        self.do_make_split_move(pos + delta, m);
+        self.do_make_split_move(pos + delta + Diff { dc: -1, dr: 0 }, m);
+        self.grid[pos + delta] = b']';
+        self.grid[pos + delta + Diff { dc: -1, dr: 0 }] = b'[';
+        self.grid[pos] = b'.';
+        self.grid[pos + Diff { dc: -1, dr: 0 }] = b'.';
+      }
+      (b'.', _) => {}
+      _ => unreachable!(),
+    }
+  }
+
+  fn make_split_move(&mut self, m: Move) {
+    let delta = m.delta();
+    let in_front_pos = self.pos + delta;
+    if self.can_do_split_move(in_front_pos, m) {
+      self.do_make_split_move(in_front_pos, m);
+      self.pos += delta;
+    }
+  }
+
+  fn with_split_move<M>(mut self, m: M) -> Self
+  where
+    M: Borrow<Move>,
+  {
+    self.make_split_move(*m.borrow());
+    self
+  }
 }
 
 impl Display for Warehouse {
@@ -139,11 +236,18 @@ fn main() -> AocResult {
     .map(Move::from_char)
     .collect::<AocResult<Vec<_>>>()?;
 
-  let warehouse = moves.iter().try_fold(warehouse, Warehouse::with_move)?;
-  println!("Sum of coordinates: {}", warehouse.sum_of_coordinates());
+  let p1_warehouse = moves
+    .iter()
+    .try_fold(warehouse.clone(), Warehouse::with_move)?;
+  println!("Sum of coordinates: {}", p1_warehouse.sum_of_coordinates());
 
-  // println!("Warehouse:");
-  // println!("{warehouse}");
+  let p2_warehouse = moves
+    .iter()
+    .fold(warehouse.with_split(), Warehouse::with_split_move);
+  println!(
+    "Sum of split coordinates: {}",
+    p2_warehouse.sum_of_coordinates()
+  );
 
   Ok(())
 }

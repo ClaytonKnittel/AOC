@@ -113,6 +113,10 @@ impl Grid {
     self.grid.len()
   }
 
+  pub fn data(&self) -> &Vec<Vec<u8>> {
+    &self.grid
+  }
+
   pub fn find_and_replace(&mut self, target: u8, replace: u8) -> Option<Pos> {
     self.grid.iter_mut().enumerate().find_map(|(row_idx, row)| {
       row.iter_mut().enumerate().find_map(|(col_idx, element)| {
