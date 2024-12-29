@@ -19,6 +19,7 @@
         "p17/Cargo.toml",
         "p18/Cargo.toml",
         "p19/Cargo.toml",
+        "p20/Cargo.toml",
         "util/Cargo.toml"
     ],
     "rust-analyzer.check.command": "clippy"
