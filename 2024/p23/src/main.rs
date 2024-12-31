@@ -4,7 +4,6 @@ use std::{
   fmt::{self, Debug, Display, Formatter},
   fs::read_to_string,
   hash::Hash,
-  iter,
   str::FromStr,
 };
 
