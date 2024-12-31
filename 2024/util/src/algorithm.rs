@@ -1,6 +1,5 @@
 use std::{
   collections::{hash_map::Entry, HashMap, HashSet},
-  fmt::Debug,
   hash::Hash,
 };
 
@@ -32,7 +31,6 @@ pub trait TopologicalOrd<K> {
   fn depends_on(&self) -> Self::DependsOnIter;
 }
 
-#[derive(Debug)]
 struct Item<K, T> {
   val: T,
   dependencies: u64,
@@ -95,13 +93,7 @@ where
     }
   }
 
-  pub fn pop(&mut self) -> Option<T>
-  where
-    K: Debug,
-    T: Debug,
-  {
-    println!("Items: {:?}", self.items);
-    println!("Free: {:?}", self.free_entries);
+  pub fn pop(&mut self) -> Option<T> {
     let k = self.free_entries.pop()?;
     let Item {
       val,
@@ -110,7 +102,6 @@ where
     } = self.items.remove(&k)?;
 
     for dependency in depended_by {
-      println!("{k:?} deps on {dependency:?}");
       match self.items.entry(dependency.clone()) {
         Entry::Occupied(mut entry) => {
           entry.get_mut().dependencies -= 1;
@@ -125,11 +116,7 @@ where
     Some(val)
   }
 
-  pub fn pop_all(mut self) -> AocResult<Vec<T>>
-  where
-    K: Debug,
-    T: Debug,
-  {
+  pub fn pop_all(mut self) -> AocResult<Vec<T>> {
     let num_items = self.items.len();
     let mut sorted_items = Vec::with_capacity(num_items);
     while let Some(item) = self.pop() {
