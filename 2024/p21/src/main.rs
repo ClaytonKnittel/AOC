@@ -1,55 +1,41 @@
-use std::fmt::Debug;
+use std::{
+  error::Error,
+  fmt::{self, Debug, Display, Formatter},
+  fs::read_to_string,
+  str::FromStr,
+};
 
-use util::{direction::Direction, error::AocResult, grid::Pos};
+use util::{
+  error::{AocError, AocResult},
+  grid::Pos,
+};
 
 trait Button: Clone + Copy + PartialEq + Eq {
   fn pos(&self) -> Pos;
 
-  /// Returns true if it is legal to go left/right, then up/down going from
-  /// `self` to `to`.
-  fn lr_ud_path_possible(&self, to: Self) -> bool;
-  /// Returns true if it is legal to go up/down, then left/right going from
-  /// `self` to `to`.
-  fn ud_lr_path_possible(&self, to: Self) -> bool;
-
-  fn possible_paths(&self, to: Self) -> Vec<Vec<(Direction, u32)>> {
+  fn path(&self, to: Self) -> Vec<(RobotButton, u32)> {
     if *self == to {
-      return vec![vec![]];
+      return vec![];
     }
 
     let to_travel = to.pos() - self.pos();
     let lr = if to_travel.dc > 0 {
-      Direction::Right
+      RobotButton::Right
     } else {
-      Direction::Left
+      RobotButton::Left
     };
-    let ud: Direction = if to_travel.dr > 0 {
-      Direction::Up
+    let ud = if to_travel.dr > 0 {
+      RobotButton::Up
     } else {
-      Direction::Down
+      RobotButton::Down
     };
     let dc = to_travel.dc.unsigned_abs() as u32;
     let dr = to_travel.dr.unsigned_abs() as u32;
 
     [
-      (dc != 0 && self.lr_ud_path_possible(to)).then(|| {
-        [
-          (to_travel.dc != 0).then_some((lr, dc)),
-          (to_travel.dr != 0).then_some((ud, dr)),
-        ]
-        .into_iter()
-        .flatten()
-        .collect()
-      }),
-      (dr != 0 && self.ud_lr_path_possible(to)).then(|| {
-        [
-          (to_travel.dr != 0).then_some((ud, dr)),
-          (to_travel.dc != 0).then_some((lr, dc)),
-        ]
-        .into_iter()
-        .flatten()
-        .collect()
-      }),
+      (to_travel.dc != 0).then_some((lr, dc)),
+      (to_travel.dr != 0).then_some((ud, dr)),
+      Some((RobotButton::A, 1)),
     ]
     .into_iter()
     .flatten()
@@ -76,18 +62,27 @@ impl Button for RobotButton {
       Self::A => Pos { col: 2, row: 1 },
     }
   }
+}
 
-  fn lr_ud_path_possible(&self, to: Self) -> bool {
-    to != Self::Left
-  }
-  fn ud_lr_path_possible(&self, _to: Self) -> bool {
-    *self != Self::Left
+impl Display for RobotButton {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    write!(
+      f,
+      "{}",
+      match self {
+        Self::Up => '^',
+        Self::Right => '>',
+        Self::Down => 'v',
+        Self::Left => '<',
+        Self::A => 'A',
+      }
+    )
   }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Keypad {
-  Number(u32),
+  Number(u8),
   A,
 }
 
@@ -102,87 +97,95 @@ impl Button for Keypad {
       Keypad::A => Pos { col: 2, row: 0 },
     }
   }
+}
 
-  fn lr_ud_path_possible(&self, to: Self) -> bool {
-    self.pos().row != 0 || to.pos().col != 0
-  }
-  fn ud_lr_path_possible(&self, to: Self) -> bool {
-    self.pos().col != 0 || to.pos().row != 0
+impl FromStr for Keypad {
+  type Err = Box<dyn Error>;
+
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    if s.len() != 1 {
+      return Err(AocError::Parse(format!("{s} not a Keypad button")).into());
+    }
+
+    match s.as_bytes()[0] {
+      b'A' => Ok(Keypad::A),
+      digit @ b'0'..=b'9' => Ok(Keypad::Number(digit - b'0')),
+      _ => Err(AocError::Parse(format!("{s} not recognized as a Keypad button")).into()),
+    }
   }
 }
 
-fn count_strokes_helper(
-  depth: usize,
-  config: &mut [RobotButton],
-  to_push: RobotButton,
-  code: &[Keypad],
-) -> u64 {
-  // We are at depth zero and can push any button at will.
-  if depth == config.len() {
-    return sequence_cost(code[0], config, &code[1..]);
+impl Display for Keypad {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    write!(
+      f,
+      "{}",
+      match self {
+        Self::Number(digit) => (b'0' + digit) as char,
+        Self::A => 'A',
+      }
+    )
   }
-
-  travel_cost(depth + 1, config[depth], to_push, config, code)
 }
 
-fn travel_cost<B: Button + Debug>(
-  depth: usize,
-  cur_button: B,
-  to_push: B,
-  config: &mut [RobotButton],
-  code: &[Keypad],
-) -> u64 {
-  let (cost, result_config) = cur_button
-    .possible_paths(to_push)
+/// Measures cost of moving from button `cur_button` to `to_push`, then pushing
+/// `to_push`. This assumes all other robots before this one are already
+/// hovering over A.
+fn push_cost<B: Button + Display>(cur_button: B, to_push: B, depth: usize) -> u64 {
+  if depth == 0 {
+    print!("{to_push}");
+    return 1;
+  }
+
+  cur_button
+    .path(to_push)
     .into_iter()
-    .map(|path| -> (u64, Vec<RobotButton>) {
-      println!(
-        "Depth {depth}: button {cur_button:?} -> {to_push:?}, path {path:?}, config {config:?}, code {code:?}"
-      );
-      let mut config_copy: Vec<_> = config.into();
-      let cost = path
-        .into_iter()
-        .map(|(direction, reps)| {
-          count_strokes_helper(
-            depth,
-            &mut config_copy,
-            match direction {
-              Direction::Up => RobotButton::Up,
-              Direction::Right => RobotButton::Right,
-              Direction::Down => RobotButton::Down,
-              Direction::Left => RobotButton::Left,
-            },
-            code,
-          ) + reps as u64 - 1
-        })
-        .sum();
-
-      (cost, config_copy)
+    .scan(RobotButton::A, |from, (to, distance)| {
+      let cost = push_cost(*from, to, depth - 1) + distance as u64 - 1;
+      *from = to;
+      Some(cost)
     })
-    .min_by(|(cost1, _), (cost2, _)| cost1.cmp(cost2))
-    .unwrap();
-
-  config.copy_from_slice(&result_config);
-  cost
+    .sum()
 }
 
-fn sequence_cost(cur_button: Keypad, config: &mut [RobotButton], code: &[Keypad]) -> u64 {
-  if code.is_empty() {
-    0
-  } else {
-    1 + travel_cost(0, cur_button, code[0], config, code)
-  }
+fn sequence_cost(code: &[Keypad], depth: usize) -> u64 {
+  code
+    .iter()
+    .scan(Keypad::A, |from, &to| {
+      let cost = push_cost(*from, to, depth);
+      *from = to;
+      Some(cost)
+    })
+    .sum()
 }
 
-fn count_keypad_strokes(depth: usize, code: &[Keypad]) -> u64 {
-  sequence_cost(Keypad::A, &mut vec![RobotButton::A; depth], code)
+fn complexity(code: &[Keypad], depth: usize) -> u64 {
+  sequence_cost(code, depth)
+    * code
+      .iter()
+      .filter_map(|key| match key {
+        Keypad::A => None,
+        Keypad::Number(digit) => Some(digit),
+      })
+      .fold(0, |total, &digit| total * 10 + digit as u64)
 }
 
 fn main() -> AocResult {
-  // const INPUT_FILE: &str = "input.txt";
+  const INPUT_FILE: &str = "input2.txt";
+  const DEPTH: usize = 3;
 
-  let count = count_keypad_strokes(0, &[Keypad::Number(0), Keypad::Number(1)]);
-  println!("{count}");
+  let codes: Vec<Vec<_>> = read_to_string(INPUT_FILE)?
+    .lines()
+    .map(|line| {
+      line
+        .chars()
+        .map(|c| c.to_string().parse())
+        .collect::<AocResult<_>>()
+    })
+    .collect::<AocResult<_>>()?;
+
+  let complexity: u64 = codes.iter().map(|code| complexity(code, DEPTH)).sum();
+  println!("Total complexity {complexity}");
 
   Ok(())
 }
