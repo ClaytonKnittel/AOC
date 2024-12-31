@@ -1,9 +1,10 @@
 use std::{
-  collections::{hash_map::Entry, HashMap, HashSet},
+  collections::{hash_map::Entry, BTreeSet, HashMap, HashSet},
   error::Error,
-  fmt::{self, Display, Formatter},
+  fmt::{self, Debug, Display, Formatter},
   fs::read_to_string,
   hash::Hash,
+  iter,
   str::FromStr,
 };
 
@@ -22,6 +23,12 @@ impl Name {
 
   fn second_letter(&self) -> u8 {
     (self.name % 26) as u8 + b'a'
+  }
+}
+
+impl Debug for Name {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    write!(f, "{self}")
   }
 }
 
@@ -84,6 +91,83 @@ fn interconnected_sets_of_3_with_t(connections: &HashMap<Name, HashSet<Name>>) -
     / 3
 }
 
+fn next_interconnected_sets(
+  connections: &HashMap<Name, HashSet<Name>>,
+  interconnections: &HashMap<Name, HashSet<BTreeSet<Name>>>,
+) -> HashMap<Name, HashSet<BTreeSet<Name>>> {
+  interconnections
+    .iter()
+    .map(|(&k, k_connections)| {
+      (
+        k,
+        k_connections
+          .iter()
+          .flat_map(move |combo| {
+            connections.get(&k).map(|single_connections| {
+              single_connections
+                .iter()
+                .filter(|name| !combo.contains(name))
+                .filter(|name| {
+                  connections.get(name).is_some_and(|name_connections| {
+                    combo
+                      .iter()
+                      .all(|combo_name| name_connections.contains(combo_name))
+                  })
+                })
+                .map(|&connected_name| {
+                  let mut new_combo = (*combo).clone();
+                  new_combo.insert(connected_name);
+                  new_combo
+                })
+            })
+          })
+          .flatten()
+          .collect::<HashSet<_>>(),
+      )
+    })
+    .filter(|(_, conn)| !conn.is_empty())
+    .collect()
+}
+
+fn largest_interconnected_set(
+  connections: &HashMap<Name, HashSet<Name>>,
+) -> Option<impl Iterator<Item = Name>> {
+  let largest_set = iter::successors(
+    Some(
+      connections
+        .iter()
+        .map(|(&name, connections)| {
+          (
+            name,
+            connections
+              .iter()
+              .map(|&connection| [connection].into_iter().collect::<BTreeSet<_>>())
+              .collect(),
+          )
+        })
+        .collect(),
+    ),
+    |interconnections: &HashMap<Name, HashSet<BTreeSet<Name>>>| {
+      println!("Interconn: {interconnections:?}");
+      if interconnections.len() <= 1 {
+        None
+      } else {
+        Some(next_interconnected_sets(connections, interconnections))
+      }
+    },
+  )
+  .last()
+  .unwrap();
+
+  if let Some((name, connections)) = largest_set.into_iter().next() {
+    if let Some(names) = connections.into_iter().next() {
+      return Some(names.into_iter().chain([name]));
+    }
+  }
+
+  None
+}
+
 fn make_connection<T>(map: &mut HashMap<T, HashSet<T>>, t1: T, t2: T)
 where
   T: Clone + Hash + PartialEq + Eq,
@@ -102,7 +186,7 @@ where
 }
 
 fn main() -> AocResult {
-  const INPUT_FILE: &str = "input.txt";
+  const INPUT_FILE: &str = "input2.txt";
   let connections = read_to_string(INPUT_FILE)?
     .lines()
     .map(|line| -> AocResult<_> {
@@ -119,6 +203,12 @@ fn main() -> AocResult {
 
   let num_with_t = interconnected_sets_of_3_with_t(&connections);
   println!("Sets of 3 with t-name: {num_with_t}");
+
+  if let Some(largest_set) = largest_interconnected_set(&connections) {
+    println!("Password: {}", largest_set.sorted().join(","));
+  } else {
+    println!("No password found :(");
+  }
 
   Ok(())
 }
