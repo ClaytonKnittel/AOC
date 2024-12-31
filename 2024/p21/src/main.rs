@@ -13,7 +13,16 @@ use util::{
 trait Button: Clone + Copy + PartialEq + Eq {
   fn pos(&self) -> Pos;
 
-  fn path(&self, to: Self) -> Vec<(RobotButton, u32)> {
+  fn to_robot(&self) -> RobotButton;
+
+  /// Returns true if it is legal to go left/right, then up/down going from
+  /// `self` to `to`.
+  fn lr_ud_path_possible(&self, to: Self) -> bool;
+  /// Returns true if it is legal to go up/down, then left/right going from
+  /// `self` to `to`.
+  fn ud_lr_path_possible(&self, to: Self) -> bool;
+
+  fn possible_paths(&self, to: Self) -> Vec<Vec<(RobotButton, u32)>> {
     if *self == to {
       return vec![];
     }
@@ -33,9 +42,26 @@ trait Button: Clone + Copy + PartialEq + Eq {
     let dr = to_travel.dr.unsigned_abs() as u32;
 
     [
-      (to_travel.dc != 0).then_some((lr, dc)),
-      (to_travel.dr != 0).then_some((ud, dr)),
-      Some((RobotButton::A, 1)),
+      self.lr_ud_path_possible(to).then(|| {
+        [
+          (to_travel.dc != 0).then_some((lr, dc)),
+          (to_travel.dr != 0).then_some((ud, dr)),
+          Some((RobotButton::A, 1)),
+        ]
+        .into_iter()
+        .flatten()
+        .collect()
+      }),
+      self.ud_lr_path_possible(to).then(|| {
+        [
+          (to_travel.dr != 0).then_some((ud, dr)),
+          (to_travel.dc != 0).then_some((lr, dc)),
+          Some((RobotButton::A, 1)),
+        ]
+        .into_iter()
+        .flatten()
+        .collect()
+      }),
     ]
     .into_iter()
     .flatten()
@@ -61,6 +87,17 @@ impl Button for RobotButton {
       Self::Left => Pos { col: 0, row: 0 },
       Self::A => Pos { col: 2, row: 1 },
     }
+  }
+
+  fn to_robot(&self) -> RobotButton {
+    *self
+  }
+
+  fn lr_ud_path_possible(&self, to: Self) -> bool {
+    to != Self::Left
+  }
+  fn ud_lr_path_possible(&self, _to: Self) -> bool {
+    *self != Self::Left
   }
 }
 
@@ -97,6 +134,17 @@ impl Button for Keypad {
       Keypad::A => Pos { col: 2, row: 0 },
     }
   }
+
+  fn to_robot(&self) -> RobotButton {
+    unimplemented!()
+  }
+
+  fn lr_ud_path_possible(&self, to: Self) -> bool {
+    self.pos().row != 0 || to.pos().col != 0
+  }
+  fn ud_lr_path_possible(&self, to: Self) -> bool {
+    self.pos().col != 0 || to.pos().row != 0
+  }
 }
 
 impl FromStr for Keypad {
@@ -131,28 +179,64 @@ impl Display for Keypad {
 /// Measures cost of moving from button `cur_button` to `to_push`, then pushing
 /// `to_push`. This assumes all other robots before this one are already
 /// hovering over A.
-fn push_cost<B: Button + Display>(cur_button: B, to_push: B, depth: usize) -> u64 {
+fn push_cost<B: Button + Display>(
+  cur_button: B,
+  to_push: B,
+  depth: usize,
+  times_to_push: u32,
+) -> u64 {
   if depth == 0 {
-    print!("{to_push}");
-    return 1;
+    // print!(
+    //   "{}",
+    //   iter::once(format!("{to_push}"))
+    //     .cycle()
+    //     .take(times_to_push as usize)
+    //     .collect::<Vec<_>>()
+    //     .join("")
+    // );
+    return times_to_push as u64;
+  }
+
+  if cur_button == to_push {
+    return times_to_push as u64;
   }
 
   cur_button
-    .path(to_push)
+    .possible_paths(to_push)
     .into_iter()
-    .scan(RobotButton::A, |from, (to, distance)| {
-      let cost = push_cost(*from, to, depth - 1) + distance as u64 - 1;
-      *from = to;
-      Some(cost)
+    .map(|path| {
+      path
+        .into_iter()
+        .scan(RobotButton::A, |from, (to, times_to_push)| {
+          let cost = push_cost(*from, to, depth - 1, times_to_push);
+          *from = to;
+          Some(cost)
+        })
+        .sum::<u64>()
+        + times_to_push as u64
+        - 1
     })
-    .sum()
+    .min()
+    .unwrap_or_else(|| {
+      println!("{cur_button} {to_push}");
+      panic!();
+    })
+
+  // print!(
+  //   "{}",
+  //   iter::once("A")
+  //     .cycle()
+  //     .take(times_to_push as usize - 1)
+  //     .collect::<Vec<_>>()
+  //     .join("")
+  // );
 }
 
 fn sequence_cost(code: &[Keypad], depth: usize) -> u64 {
   code
     .iter()
     .scan(Keypad::A, |from, &to| {
-      let cost = push_cost(*from, to, depth);
+      let cost = push_cost(*from, to, depth, 1);
       *from = to;
       Some(cost)
     })
@@ -171,7 +255,7 @@ fn complexity(code: &[Keypad], depth: usize) -> u64 {
 }
 
 fn main() -> AocResult {
-  const INPUT_FILE: &str = "input2.txt";
+  const INPUT_FILE: &str = "input.txt";
   const DEPTH: usize = 3;
 
   let codes: Vec<Vec<_>> = read_to_string(INPUT_FILE)?
