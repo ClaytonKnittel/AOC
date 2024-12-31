@@ -8,7 +8,7 @@ use std::{
   str::FromStr,
 };
 
-use itertools::Itertools;
+use itertools::{FoldWhile, Itertools};
 use util::error::{AocError, AocResult};
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -132,8 +132,8 @@ fn next_interconnected_sets(
 fn largest_interconnected_set(
   connections: &HashMap<Name, HashSet<Name>>,
 ) -> Option<impl Iterator<Item = Name>> {
-  let largest_set = iter::successors(
-    Some(
+  let largest_set = (2..)
+    .fold_while(
       connections
         .iter()
         .map(|(&name, connections)| {
@@ -141,23 +141,20 @@ fn largest_interconnected_set(
             name,
             connections
               .iter()
-              .map(|&connection| [connection].into_iter().collect::<BTreeSet<_>>())
+              .map(|&connection| [connection].into_iter().collect())
               .collect(),
           )
         })
         .collect(),
-    ),
-    |interconnections: &HashMap<Name, HashSet<BTreeSet<Name>>>| {
-      println!("Interconn: {interconnections:?}");
-      if interconnections.len() <= 1 {
-        None
-      } else {
-        Some(next_interconnected_sets(connections, interconnections))
-      }
-    },
-  )
-  .last()
-  .unwrap();
+      |interconnections: HashMap<Name, HashSet<BTreeSet<Name>>>, n| {
+        if interconnections.len() <= n {
+          FoldWhile::Done(interconnections)
+        } else {
+          FoldWhile::Continue(next_interconnected_sets(connections, &interconnections))
+        }
+      },
+    )
+    .into_inner();
 
   if let Some((name, connections)) = largest_set.into_iter().next() {
     if let Some(names) = connections.into_iter().next() {
@@ -186,7 +183,7 @@ where
 }
 
 fn main() -> AocResult {
-  const INPUT_FILE: &str = "input2.txt";
+  const INPUT_FILE: &str = "input.txt";
   let connections = read_to_string(INPUT_FILE)?
     .lines()
     .map(|line| -> AocResult<_> {
