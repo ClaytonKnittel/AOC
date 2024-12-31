@@ -1,4 +1,5 @@
 use std::{
+  collections::HashMap,
   error::Error,
   fmt::{self, Debug, Display, Formatter},
   fs::read_to_string,
@@ -12,8 +13,6 @@ use util::{
 
 trait Button: Clone + Copy + PartialEq + Eq {
   fn pos(&self) -> Pos;
-
-  fn to_robot(&self) -> RobotButton;
 
   /// Returns true if it is legal to go left/right, then up/down going from
   /// `self` to `to`.
@@ -69,7 +68,7 @@ trait Button: Clone + Copy + PartialEq + Eq {
   }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum RobotButton {
   Up,
   Right,
@@ -87,10 +86,6 @@ impl Button for RobotButton {
       Self::Left => Pos { col: 0, row: 0 },
       Self::A => Pos { col: 2, row: 1 },
     }
-  }
-
-  fn to_robot(&self) -> RobotButton {
-    *self
   }
 
   fn lr_ud_path_possible(&self, to: Self) -> bool {
@@ -133,10 +128,6 @@ impl Button for Keypad {
       },
       Keypad::A => Pos { col: 2, row: 0 },
     }
-  }
-
-  fn to_robot(&self) -> RobotButton {
-    unimplemented!()
   }
 
   fn lr_ud_path_possible(&self, to: Self) -> bool {
@@ -184,31 +175,26 @@ fn push_cost<B: Button + Display>(
   to_push: B,
   depth: usize,
   times_to_push: u32,
+  cache: &mut HashMap<(RobotButton, RobotButton, usize, u32), u64>,
 ) -> u64 {
-  if depth == 0 {
-    // print!(
-    //   "{}",
-    //   iter::once(format!("{to_push}"))
-    //     .cycle()
-    //     .take(times_to_push as usize)
-    //     .collect::<Vec<_>>()
-    //     .join("")
-    // );
+  if depth == 0 || cur_button == to_push {
     return times_to_push as u64;
   }
 
-  if cur_button == to_push {
-    return times_to_push as u64;
-  }
-
-  cur_button
+  let cost = cur_button
     .possible_paths(to_push)
     .into_iter()
     .map(|path| {
       path
         .into_iter()
         .scan(RobotButton::A, |from, (to, times_to_push)| {
-          let cost = push_cost(*from, to, depth - 1, times_to_push);
+          let cost = if let Some(&cost) = cache.get(&(*from, to, depth - 1, times_to_push)) {
+            cost
+          } else {
+            let cost = push_cost(*from, to, depth - 1, times_to_push, cache);
+            cache.insert((*from, to, depth - 1, times_to_push), cost);
+            cost
+          };
           *from = to;
           Some(cost)
         })
@@ -220,23 +206,16 @@ fn push_cost<B: Button + Display>(
     .unwrap_or_else(|| {
       println!("{cur_button} {to_push}");
       panic!();
-    })
+    });
 
-  // print!(
-  //   "{}",
-  //   iter::once("A")
-  //     .cycle()
-  //     .take(times_to_push as usize - 1)
-  //     .collect::<Vec<_>>()
-  //     .join("")
-  // );
+  cost
 }
 
 fn sequence_cost(code: &[Keypad], depth: usize) -> u64 {
   code
     .iter()
     .scan(Keypad::A, |from, &to| {
-      let cost = push_cost(*from, to, depth, 1);
+      let cost = push_cost(*from, to, depth, 1, &mut HashMap::new());
       *from = to;
       Some(cost)
     })
@@ -256,7 +235,6 @@ fn complexity(code: &[Keypad], depth: usize) -> u64 {
 
 fn main() -> AocResult {
   const INPUT_FILE: &str = "input.txt";
-  const DEPTH: usize = 3;
 
   let codes: Vec<Vec<_>> = read_to_string(INPUT_FILE)?
     .lines()
@@ -268,8 +246,11 @@ fn main() -> AocResult {
     })
     .collect::<AocResult<_>>()?;
 
-  let complexity: u64 = codes.iter().map(|code| complexity(code, DEPTH)).sum();
-  println!("Total complexity {complexity}");
+  let complexity_shallow: u64 = codes.iter().map(|code| complexity(code, 3)).sum();
+  println!("Total complexity depth 3: {complexity_shallow}");
+
+  let complexity_deep: u64 = codes.iter().map(|code| complexity(code, 26)).sum();
+  println!("Total complexity depth 26: {complexity_deep}");
 
   Ok(())
 }
