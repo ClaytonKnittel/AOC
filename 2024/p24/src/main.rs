@@ -15,7 +15,7 @@ use util::{
   iter_util::iter_to_slice,
 };
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 struct Bool {
   val: bool,
 }
@@ -74,6 +74,7 @@ impl Display for Bool {
   }
 }
 
+#[derive(Clone, PartialEq, Eq, Hash)]
 enum Statement<T> {
   Declaration(Declaration<T>),
   Condition(Condition<T>),
@@ -118,6 +119,7 @@ impl<T: Display> Display for Statement<T> {
   }
 }
 
+#[derive(Clone, PartialEq, Eq, Hash)]
 struct Declaration<T> {
   variable: T,
   val: Bool,
@@ -150,6 +152,7 @@ impl<T: Display> Display for Declaration<T> {
   }
 }
 
+#[derive(Clone, PartialEq, Eq, Hash)]
 struct Condition<T> {
   op: ConditionOp<T>,
   result: T,
@@ -185,6 +188,7 @@ impl<T: Display> Display for Condition<T> {
   }
 }
 
+#[derive(Clone, PartialEq, Eq, Hash)]
 enum ConditionOp<T> {
   And { l: T, r: T },
   Or { l: T, r: T },
@@ -235,9 +239,22 @@ impl<T: Display> Display for ConditionOp<T> {
 struct NumberSolver {
   statements: Vec<Statement<usize>>,
   number_bit_idx: Vec<usize>,
+  name_lookup: Vec<String>,
 }
 
 impl NumberSolver {
+  fn x(idx: usize) -> String {
+    format!("x{idx:#02}")
+  }
+
+  fn y(idx: usize) -> String {
+    format!("y{idx:#02}")
+  }
+
+  fn z(idx: usize) -> String {
+    format!("z{idx:#02}")
+  }
+
   fn new(
     bindings: impl Iterator<Item = Declaration<String>>,
     conditions: impl Iterator<Item = Condition<String>>,
@@ -248,6 +265,54 @@ impl NumberSolver {
         .chain(conditions.map(Statement::Condition)),
     )
     .pop_all()?;
+
+    // let var_bindings: HashMap<_, _> = sorted
+    //   .iter()
+    //   .flat_map(|statement| {
+    //     if let Statement::Condition(Condition { op, result }) = statement {
+    //       Some((result.clone(), op))
+    //     } else {
+    //       None
+    //     }
+    //   })
+    //   .collect();
+
+    // fn expand_op(
+    //   op: &ConditionOp<String>,
+    //   var_bindings: &HashMap<String, &ConditionOp<String>>,
+    // ) -> String {
+    //   let l = var_bindings
+    //     .get(op.lhs())
+    //     .map(|statement| expand_op(statement, var_bindings))
+    //     .unwrap_or(op.lhs().to_owned());
+    //   let r = var_bindings
+    //     .get(op.rhs())
+    //     .map(|statement| expand_op(statement, var_bindings))
+    //     .unwrap_or(op.rhs().to_owned());
+    //   let op = match op {
+    //     ConditionOp::And { l: _, r: _ } => ConditionOp::And { l, r },
+    //     ConditionOp::Or { l: _, r: _ } => ConditionOp::Or { l, r },
+    //     ConditionOp::Xor { l: _, r: _ } => ConditionOp::Xor { l, r },
+    //   };
+    //   format!("({op})")
+    // }
+
+    // fn expand_statement(
+    //   statement: &Statement<String>,
+    //   var_bindings: &HashMap<String, &ConditionOp<String>>,
+    // ) -> String {
+    //   match statement {
+    //     Statement::Declaration(declaration) => format!("{declaration}"),
+    //     Statement::Condition(Condition { op, result }) => {
+    //       format!("{} = {result}", expand_op(op, var_bindings))
+    //     }
+    //   }
+    // }
+
+    // for statement in sorted.iter() {
+    //   println!("{statement}");
+    //   println!("{}", expand_statement(statement, &var_bindings));
+    // }
 
     let mut name_map = HashMap::new();
     let statements = sorted
@@ -280,6 +345,11 @@ impl NumberSolver {
       })
       .collect();
 
+    let mut name_lookup = vec!["".to_string(); name_map.len()];
+    for (name, &idx) in name_map.iter() {
+      name_lookup[idx] = name.clone();
+    }
+
     let mut number_bit_idx: Vec<_> = (0..)
       .map(|idx| format!("z{idx:#02}"))
       .map_while(|z_var| name_map.get(&z_var).cloned())
@@ -289,6 +359,7 @@ impl NumberSolver {
     Ok(Self {
       statements,
       number_bit_idx,
+      name_lookup,
     })
   }
 
@@ -321,10 +392,107 @@ impl NumberSolver {
       (v << 1) + if bindings[idx].val { 1 } else { 0 }
     })
   }
+
+  fn find_wire_swaps(&self) -> AocResult<impl Iterator<Item = [String; 2]>> {
+    let op_lookup: HashMap<_, _> = self
+      .statements
+      .iter()
+      .flat_map(|statement| {
+        if let Statement::Condition(Condition { op, result }) = statement {
+          Some((op.clone(), *result))
+        } else {
+          None
+        }
+      })
+      .collect();
+    // Map from variable name to the index of the statement it is defined by.
+    let result_lookup: HashMap<_, _> = self
+      .statements
+      .iter()
+      .enumerate()
+      .map(|(idx, statement)| {
+        (
+          self.name_lookup[match statement {
+            Statement::Declaration(Declaration { variable, val: _ }) => *variable,
+            Statement::Condition(Condition { op: _, result }) => *result,
+          }]
+          .clone(),
+          idx,
+        )
+      })
+      .collect();
+
+    fn lookup(
+      cond: &ConditionOp<usize>,
+      op_lookup: &HashMap<ConditionOp<usize>, usize>,
+    ) -> Option<usize> {
+      op_lookup
+        .get(cond)
+        .or_else(|| {
+          op_lookup.get(&match cond.clone() {
+            ConditionOp::And { l, r } => ConditionOp::And { l: r, r: l },
+            ConditionOp::Or { l, r } => ConditionOp::Or { l: r, r: l },
+            ConditionOp::Xor { l, r } => ConditionOp::Xor { l: r, r: l },
+          })
+        })
+        .cloned()
+    }
+
+    let mut prev_carry = None;
+    for bit_idx in 0..self.number_bit_idx.len() {
+      println!("Gonna get {}", Self::z(bit_idx));
+
+      if bit_idx < self.number_bit_idx.len() - 1 {
+        let xc = *result_lookup.get(&Self::x(bit_idx)).unwrap();
+        let yc = *result_lookup.get(&Self::y(bit_idx)).unwrap();
+        let from_cur_bits = ConditionOp::Xor { l: xc, r: yc };
+        let from_cur_bits_idx = lookup(&from_cur_bits, &op_lookup);
+        println!(
+          "{} = {:?}",
+          from_cur_bits,
+          from_cur_bits_idx.map(|name_idx| &self.name_lookup[name_idx])
+        );
+      }
+
+      if bit_idx > 0 {
+        let xp = *result_lookup.get(&Self::x(bit_idx - 1)).unwrap();
+        let yp = *result_lookup.get(&Self::y(bit_idx - 1)).unwrap();
+        let from_prev_bits = ConditionOp::And { l: xp, r: yp };
+        let from_prev_bits_idx = lookup(&from_prev_bits, &op_lookup).unwrap();
+        println!("{} = {:?}", from_prev_bits, from_prev_bits_idx);
+
+        let mut carry_idx = from_prev_bits_idx;
+
+        if let Some(pc) = prev_carry {
+          let either_prev = ConditionOp::Xor { l: xp, r: yp };
+          let either_prev_idx = lookup(&either_prev, &op_lookup).unwrap();
+          let from_carry = ConditionOp::And {
+            l: either_prev_idx,
+            r: pc,
+          };
+          let from_carry_idx = lookup(&from_carry, &op_lookup).unwrap();
+
+          println!("{} = {:?}", either_prev, either_prev_idx);
+          println!("{} = {:?}", from_carry, from_carry_idx);
+
+          let carry = ConditionOp::Or {
+            l: from_prev_bits_idx,
+            r: from_carry_idx,
+          };
+          carry_idx = lookup(&carry, &op_lookup).unwrap();
+          println!("{} = {:?}", carry, carry_idx);
+        }
+
+        prev_carry = Some(carry_idx);
+      }
+    }
+
+    Ok(std::iter::empty())
+  }
 }
 
 fn main() -> AocResult {
-  const INPUT_FILE: &str = "input.txt";
+  const INPUT_FILE: &str = "input3.txt";
   let contents = read_to_string(INPUT_FILE)?;
   let (bindings, conditions) = contents
     .split_once("\n\n")
@@ -339,8 +507,14 @@ fn main() -> AocResult {
     .map(|line| line.parse())
     .collect::<AocResult<_>>()?;
 
-  let result = NumberSolver::new(bindings.into_iter(), conditions.into_iter())?.solve();
+  let solver = NumberSolver::new(bindings.into_iter(), conditions.into_iter())?;
+
+  let result = solver.solve();
   println!("z result: {result}");
+
+  let mut wire_swaps: Vec<_> = solver.find_wire_swaps()?.flatten().collect();
+  wire_swaps.sort();
+  println!("Swapped wires: {}", wire_swaps.join(","));
 
   Ok(())
 }

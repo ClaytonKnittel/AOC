@@ -1,0 +1,12 @@
+x00: 1
+x01: 0
+y00: 1
+y01: 0
+
+y00 AND x00 -> jfb
+x00 XOR y00 -> z00
+y01 XOR x01 -> jjj
+y01 AND x01 -> cpp
+jjj XOR jfb -> z01
+jfb AND jjj -> pss
+cpp OR pss -> z02
