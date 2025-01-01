@@ -1,5 +1,5 @@
 use std::{
-  collections::{hash_map::Entry, HashMap, HashSet},
+  collections::{hash_map::Entry, HashMap, VecDeque},
   hash::Hash,
 };
 
@@ -39,7 +39,7 @@ struct Item<K, T> {
 
 pub struct TopologicalSort<K, T> {
   items: HashMap<K, Item<K, T>>,
-  free_entries: Vec<K>,
+  free_entries: VecDeque<K>,
 }
 
 impl<K, T> TopologicalSort<K, T>
@@ -50,7 +50,7 @@ where
   pub fn new(iter: impl Iterator<Item = T>) -> Self {
     let mut items = HashMap::new();
     let mut depended_by: HashMap<K, Vec<K>> = HashMap::new();
-    let mut free_entries = HashSet::<K>::new();
+    let mut free_entries = VecDeque::<K>::new();
     for item in iter {
       let item_key = item.key();
 
@@ -67,7 +67,7 @@ where
         }
       }
       if dependency_count == 0 {
-        free_entries.insert(item_key.clone());
+        free_entries.push_back(item_key.clone());
       }
       items.insert(item_key, (item, dependency_count));
     }
@@ -89,12 +89,12 @@ where
 
     Self {
       items,
-      free_entries: free_entries.into_iter().collect(),
+      free_entries,
     }
   }
 
   pub fn pop(&mut self) -> Option<T> {
-    let k = self.free_entries.pop()?;
+    let k = self.free_entries.pop_front()?;
     let Item {
       val,
       dependencies: _,
@@ -106,7 +106,7 @@ where
         Entry::Occupied(mut entry) => {
           entry.get_mut().dependencies -= 1;
           if entry.get().dependencies == 0 {
-            self.free_entries.push(dependency);
+            self.free_entries.push_back(dependency);
           }
         }
         Entry::Vacant(_) => unreachable!(),
