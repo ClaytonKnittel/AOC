@@ -211,6 +211,17 @@ impl<T> ConditionOp<T> {
       Self::Xor { l: _, r } => r,
     }
   }
+
+  fn map<U, F>(&self, mut f: F) -> ConditionOp<U>
+  where
+    F: FnMut(&T) -> U,
+  {
+    match self {
+      Self::And { l, r } => ConditionOp::And { l: f(l), r: f(r) },
+      Self::Or { l, r } => ConditionOp::Or { l: f(l), r: f(r) },
+      Self::Xor { l, r } => ConditionOp::Xor { l: f(l), r: f(r) },
+    }
+  }
 }
 
 impl<T> ConditionOp<T>
@@ -393,7 +404,113 @@ impl NumberSolver {
     })
   }
 
-  fn find_wire_swaps(&self) -> AocResult<impl Iterator<Item = [String; 2]>> {
+  fn lookup(
+    cond: &ConditionOp<usize>,
+    op_lookup: &HashMap<ConditionOp<usize>, usize>,
+    swaps: &HashMap<usize, usize>,
+  ) -> Option<usize> {
+    op_lookup
+      .get(cond)
+      .or_else(|| {
+        op_lookup.get(&match cond.clone() {
+          ConditionOp::And { l, r } => ConditionOp::And { l: r, r: l },
+          ConditionOp::Or { l, r } => ConditionOp::Or { l: r, r: l },
+          ConditionOp::Xor { l, r } => ConditionOp::Xor { l: r, r: l },
+        })
+      })
+      .map(|idx| swaps.get(idx).unwrap_or(idx))
+      .cloned()
+  }
+
+  fn solve_for_swaps(
+    &self,
+    bit_idx: usize,
+    prev_carry: Option<usize>,
+    op_lookup: &HashMap<ConditionOp<usize>, usize>,
+    result_lookup: &HashMap<String, usize>,
+    swaps: &HashMap<usize, usize>,
+  ) -> HashMap<usize, usize> {
+    if bit_idx == self.number_bit_idx.len() {
+      return swaps.clone();
+    }
+
+    let get_op_idx = |op: ConditionOp<String>| -> Option<usize> {
+      let idx_op = op.map(|name| *result_lookup.get(name).unwrap());
+      let idx = Self::lookup(&idx_op, op_lookup, swaps);
+      println!("{} = {:?}", op, idx);
+      idx
+    };
+    let get_int_op_idx = |op: ConditionOp<usize>| -> Option<usize> {
+      let idx = Self::lookup(&op, op_lookup, swaps);
+      println!("{} = {:?}", op, idx);
+      idx
+    };
+
+    let from_cur_bits = (bit_idx < self.number_bit_idx.len() - 1).then(|| {
+      get_op_idx(ConditionOp::Xor {
+        l: Self::x(bit_idx),
+        r: Self::y(bit_idx),
+      })
+      .unwrap()
+    });
+
+    let from_carry = (bit_idx > 0).then(|| {
+      let xp = Self::x(bit_idx - 1);
+      let yp = Self::y(bit_idx - 1);
+      let from_prev_bits = get_op_idx(ConditionOp::And {
+        l: xp.clone(),
+        r: yp.clone(),
+      })
+      .unwrap();
+
+      let mut carry_idx = from_prev_bits;
+
+      if let Some(pc) = prev_carry {
+        let either_prev = get_op_idx(ConditionOp::Xor { l: xp, r: yp }).unwrap();
+        let from_carry = get_int_op_idx(ConditionOp::And {
+          l: either_prev,
+          r: pc,
+        });
+        // If from_carry is None, then either_prev must have been swapped.
+        let from_carry = from_carry.unwrap();
+
+        let carry = get_int_op_idx(ConditionOp::Or {
+          l: from_prev_bits,
+          r: from_carry,
+        });
+        // If carry is None, then either either_prev, from_carry, or
+        // from_prev_bits was swapped.
+        carry_idx = carry.unwrap();
+      }
+
+      carry_idx
+    });
+
+    let z_idx = if let Some(cur_bits) = from_cur_bits {
+      if let Some(carry) = from_carry {
+        let z_idx = get_int_op_idx(ConditionOp::Xor {
+          l: cur_bits,
+          r: carry,
+        });
+        // If z_idx is None, then...
+        z_idx.unwrap()
+      } else {
+        cur_bits
+      }
+    } else {
+      from_carry.unwrap()
+    };
+
+    let expected_z_idx = *result_lookup.get(&Self::z(bit_idx)).unwrap();
+    if z_idx != expected_z_idx {
+      // If z_idx is not the right result, then...
+      println!("Result wrong: {z_idx} != {expected_z_idx}");
+    }
+
+    self.solve_for_swaps(bit_idx + 1, from_carry, op_lookup, result_lookup, swaps)
+  }
+
+  fn find_wire_swaps(&self) -> AocResult<impl Iterator<Item = String> + '_> {
     let op_lookup: HashMap<_, _> = self
       .statements
       .iter()
@@ -421,95 +538,10 @@ impl NumberSolver {
         )
       })
       .collect();
-    let mut swaps = HashMap::<usize, usize>::new();
 
-    fn lookup(
-      cond: &ConditionOp<usize>,
-      op_lookup: &HashMap<ConditionOp<usize>, usize>,
-      swaps: &HashMap<usize, usize>,
-    ) -> Option<usize> {
-      op_lookup
-        .get(cond)
-        .or_else(|| {
-          op_lookup.get(&match cond.clone() {
-            ConditionOp::And { l, r } => ConditionOp::And { l: r, r: l },
-            ConditionOp::Or { l, r } => ConditionOp::Or { l: r, r: l },
-            ConditionOp::Xor { l, r } => ConditionOp::Xor { l: r, r: l },
-          })
-        })
-        .map(|idx| swaps.get(idx).unwrap_or(idx))
-        .cloned()
-    }
+    let swaps = self.solve_for_swaps(0, None, &op_lookup, &result_lookup, &HashMap::new());
 
-    let mut prev_carry = None;
-    for bit_idx in 0..self.number_bit_idx.len() {
-      println!("Gonna get {}", Self::z(bit_idx));
-
-      let from_cur_bits = (bit_idx < self.number_bit_idx.len() - 1).then(|| {
-        let xc = *result_lookup.get(&Self::x(bit_idx)).unwrap();
-        let yc = *result_lookup.get(&Self::y(bit_idx)).unwrap();
-        let from_cur_bits = ConditionOp::Xor { l: xc, r: yc };
-        let from_cur_bits_idx = lookup(&from_cur_bits, &op_lookup, &swaps).unwrap();
-        println!("{} = {:?}", from_cur_bits, from_cur_bits_idx);
-        from_cur_bits_idx
-      });
-
-      let from_carry = (bit_idx > 0).then(|| {
-        let xp = *result_lookup.get(&Self::x(bit_idx - 1)).unwrap();
-        let yp = *result_lookup.get(&Self::y(bit_idx - 1)).unwrap();
-        let from_prev_bits = ConditionOp::And { l: xp, r: yp };
-        let from_prev_bits_idx = lookup(&from_prev_bits, &op_lookup, &swaps).unwrap();
-        println!("{} = {:?}", from_prev_bits, from_prev_bits_idx);
-
-        let mut carry_idx = from_prev_bits_idx;
-
-        if let Some(pc) = prev_carry {
-          let either_prev = ConditionOp::Xor { l: xp, r: yp };
-          let either_prev_idx = lookup(&either_prev, &op_lookup, &swaps).unwrap();
-          let from_carry = ConditionOp::And {
-            l: either_prev_idx,
-            r: pc,
-          };
-          let from_carry_idx = lookup(&from_carry, &op_lookup, &swaps).unwrap();
-
-          println!("{} = {:?}", either_prev, either_prev_idx);
-          println!("{} = {:?}", from_carry, from_carry_idx);
-
-          let carry = ConditionOp::Or {
-            l: from_prev_bits_idx,
-            r: from_carry_idx,
-          };
-          carry_idx = lookup(&carry, &op_lookup, &swaps).unwrap();
-          println!("{} = {:?}", carry, carry_idx);
-        }
-
-        prev_carry = Some(carry_idx);
-        carry_idx
-      });
-
-      let z_idx = if let Some(cur_bits) = from_cur_bits {
-        if let Some(carry) = from_carry {
-          let z_op = ConditionOp::Xor {
-            l: cur_bits,
-            r: carry,
-          };
-          let z_idx = lookup(&z_op, &op_lookup, &swaps).unwrap();
-          println!("{} = {:?}", z_op, z_idx);
-          z_idx
-        } else {
-          cur_bits
-        }
-      } else {
-        from_carry.unwrap()
-      };
-
-      let expected_z_idx = *result_lookup.get(&Self::z(bit_idx)).unwrap();
-      if z_idx != expected_z_idx {
-        println!("Result wrong: {z_idx} != {expected_z_idx}");
-      }
-    }
-
-    Ok(std::iter::empty())
+    Ok(swaps.into_keys().map(|idx| self.name_lookup[idx].clone()))
   }
 }
 
@@ -534,7 +566,7 @@ fn main() -> AocResult {
   let result = solver.solve();
   println!("z result: {result}");
 
-  let mut wire_swaps: Vec<_> = solver.find_wire_swaps()?.flatten().collect();
+  let mut wire_swaps: Vec<_> = solver.find_wire_swaps()?.collect();
   wire_swaps.sort();
   println!("Swapped wires: {}", wire_swaps.join(","));
 
