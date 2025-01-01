@@ -5,7 +5,9 @@ z01 = (x01 ^ y01) ^ carry1
 carry1 = x00 & y00
 
 z02 = (x02 ^ y02) ^ carry2
-carry2 = (x01 & x01) | ((x01 | y01) & carry1)
+carry2 = (x01 & x01) | ((x01 ^ y01) & carry1)
 
 z10 = (x10 ^ y10) ^ carry10
-carry10 = (x09 & y09) | ((x09 | y09) & carry9)
+carry10 = (x09 & y09) | ((x09 ^ y09) & carry9)
+
+z45 = (x44 & y44) | ((x44 ^ y44) & carry44)
