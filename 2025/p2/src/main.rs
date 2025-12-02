@@ -1,34 +1,52 @@
 use std::{fs::read_to_string, str::FromStr};
 
+use itertools::Itertools;
+use sieve_rs::PrimeFactorSieve;
 use util::error::{AocError, AocResult};
 
-fn sum_of_bad_ids_above(num: u64) -> u64 {
-  debug_assert!(num.ilog10() % 2 == 1);
-  let digits = num.ilog10() + 1;
-  let div = 10_u64.pow(digits / 2);
-  let hi = num / div;
-  let lo = num % div;
-
-  let mut sum = div * (div - 1) / 2 - hi * (hi + 1) / 2;
-  if hi >= lo {
-    sum += hi;
-  }
-  sum * (div + 1)
+struct DigitCounts {
+  count: u32,
+  positive: bool,
 }
 
-fn sum_of_bad_ids_below(num: u64) -> u64 {
-  debug_assert!(num.ilog10() % 2 == 1);
-  let digits = num.ilog10() + 1;
-  let div = 10_u64.pow(digits / 2);
-  let hi = num / div;
-  let lo = num % div;
+fn digit_counts(digits: u32, sieve: &PrimeFactorSieve) -> impl Iterator<Item = DigitCounts> {
+  sieve
+    .prime_factors(digits)
+    .map(|(p, _)| p)
+    .powerset()
+    .filter(|primes| !primes.is_empty())
+    .map(|primes| DigitCounts {
+      count: primes.iter().product(),
+      positive: primes.len() % 2 == 1,
+    })
+}
 
-  let min = div / 10;
-  let mut sum = hi * (hi - 1) / 2 - min * min.wrapping_sub(1) / 2;
-  if hi <= lo {
-    sum += hi;
+fn sum_of_bad_ids_between(lo: u64, hi: u64, count: u32) -> u64 {
+  let digits = lo.ilog10() + 1;
+  debug_assert!(
+    digits.is_multiple_of(count),
+    "{lo} log10 == {digits}, vs {count}"
+  );
+  debug_assert!(lo.ilog10() == hi.ilog10());
+  debug_assert!(lo <= hi);
+
+  let div = 10_u64.pow(digits / count * (count - 1));
+  let lo_hi = lo / div;
+  let lo_lo = lo % div;
+  let hi_hi = hi / div;
+  let hi_lo = hi % div;
+
+  let pow10_above = 10_u64.pow(digits / count);
+  let splayed = (0..(count - 1)).fold(0, |s, _| pow10_above * s + 1);
+
+  let mut sum = (hi_hi * (hi_hi - 1) / 2).wrapping_sub(lo_hi * (lo_hi + 1) / 2);
+  if lo_hi * splayed >= lo_lo {
+    sum = sum.wrapping_add(lo_hi);
   }
-  sum * (div + 1)
+  if hi_hi * splayed <= hi_lo {
+    sum = sum.wrapping_add(hi_hi);
+  }
+  sum * (splayed * pow10_above + 1)
 }
 
 struct Range {
@@ -37,30 +55,33 @@ struct Range {
 }
 
 impl Range {
-  fn bad_id_count(&self) -> u64 {
+  fn bad_id_count(&self, sieve: &PrimeFactorSieve, p2: bool) -> u64 {
     let lo_digits = self.low.ilog10() + 1;
     let hi_digits = self.high.ilog10() + 1;
-    if lo_digits == hi_digits {
-      if lo_digits % 2 == 0 {
-        sum_of_bad_ids_above(self.low as u64) - sum_of_bad_ids_above((self.high + 1) as u64)
-      } else {
-        0
-      }
+
+    if p2 {
+      (lo_digits..=hi_digits)
+        .flat_map(|digits| digit_counts(digits, sieve).map(move |counts| (digits, counts)))
+        .map(|(digits, DigitCounts { count, positive })| {
+          let lo = self.low.max(10_u64.pow(digits - 1));
+          let hi = self.high.min(10_u64.pow(digits) - 1);
+          let sum = sum_of_bad_ids_between(lo, hi, count);
+          if positive {
+            sum as i64
+          } else {
+            -(sum as i64)
+          }
+        })
+        .sum::<i64>() as u64
     } else {
-      let mut sum = 0;
-      if lo_digits % 2 == 0 {
-        sum += sum_of_bad_ids_above(self.low as u64);
-      }
-
-      for digits in ((lo_digits + 1) & !1)..((hi_digits - 1) & !1) {
-        sum += sum_of_bad_ids_above(10_u64.pow(digits - 1));
-      }
-
-      if hi_digits % 2 == 0 {
-        sum += sum_of_bad_ids_below(self.high as u64);
-      }
-
-      sum
+      (lo_digits..=hi_digits)
+        .filter(|digits| digits.is_multiple_of(2))
+        .map(|digits| {
+          let lo = self.low.max(10_u64.pow(digits - 1));
+          let hi = self.high.min(10_u64.pow(digits) - 1);
+          sum_of_bad_ids_between(lo, hi, 2)
+        })
+        .sum()
     }
   }
 }
@@ -85,15 +106,23 @@ impl FromStr for Range {
 
 fn main() -> AocResult {
   const INPUT: &str = "input.txt";
-  let bad_id_count = read_to_string(INPUT)?
+
+  let sieve = PrimeFactorSieve::new(100);
+
+  let (count1, count2) = read_to_string(INPUT)?
     .trim()
     .split(',')
     .map(|range| range.parse::<Range>())
-    .try_fold(0, |bad_id_count, range| -> AocResult<_> {
-      Ok(bad_id_count + range?.bad_id_count())
+    .try_fold((0, 0), |(c1, c2), range| -> AocResult<_> {
+      let range = range?;
+      Ok((
+        c1 + range.bad_id_count(&sieve, false),
+        c2 + range.bad_id_count(&sieve, true),
+      ))
     })?;
 
-  println!("Bad ID count: {bad_id_count}");
+  println!("Bad ID count: {count1}");
+  println!("Bad ID count p2: {count2}");
 
   Ok(())
 }
