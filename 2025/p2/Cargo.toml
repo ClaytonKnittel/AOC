@@ -1,9 +1,0 @@
-[package]
-name = "p2"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-util = { path = "../../util" }
-sieve-rs = { git = "https://github.com/ClaytonKnittel/sieve-rs", rev = "1b6d4386c337a2e1e4da3d9b7821bef9fba7cccd" }
-itertools = "0.14.0"

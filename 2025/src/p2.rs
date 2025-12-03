@@ -4,6 +4,8 @@ use itertools::Itertools;
 use sieve_rs::PrimeFactorSieve;
 use util::error::{AocError, AocResult};
 
+use crate::solution::{NumericSolution, Part};
+
 struct DigitCounts {
   count: u32,
   positive: bool,
@@ -104,25 +106,18 @@ impl FromStr for Range {
   }
 }
 
-fn main() -> AocResult {
-  const INPUT: &str = "input.txt";
+pub struct P2;
 
-  let sieve = PrimeFactorSieve::new(100);
+impl NumericSolution for P2 {
+  fn solve(input_path: &str, part: Part) -> AocResult<u64> {
+    let sieve = PrimeFactorSieve::new(100);
 
-  let (count1, count2) = read_to_string(INPUT)?
-    .trim()
-    .split(',')
-    .map(|range| range.parse::<Range>())
-    .try_fold((0, 0), |(c1, c2), range| -> AocResult<_> {
-      let range = range?;
-      Ok((
-        c1 + range.bad_id_count(&sieve, false),
-        c2 + range.bad_id_count(&sieve, true),
-      ))
-    })?;
-
-  println!("Bad ID count: {count1}");
-  println!("Bad ID count p2: {count2}");
-
-  Ok(())
+    read_to_string(input_path)?
+      .trim()
+      .split(',')
+      .map(|range| range.parse::<Range>())
+      .try_fold(0, |count, range| -> AocResult<_> {
+        Ok(count + range?.bad_id_count(&sieve, part.p2()))
+      })
+  }
 }
