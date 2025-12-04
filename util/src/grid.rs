@@ -136,7 +136,7 @@ impl Grid {
         })
     }
 
-    pub fn neighbors(&self, pos: Pos) -> impl Iterator<Item = Pos> + '_ {
+    pub fn neighbor_positions(&self, pos: Pos) -> impl Iterator<Item = Pos> + '_ {
         (-1..=1).flat_map(move |dr| {
             (-1..=1)
                 .filter_map(move |dc| (dr != 0 || dc != 0).then_some(pos + Diff { dr, dc }))
@@ -144,7 +144,11 @@ impl Grid {
         })
     }
 
-    pub fn orthogonal_neighbors(&self, pos: Pos) -> impl Iterator<Item = Pos> {
+    pub fn neighbors(&self, pos: Pos) -> impl Iterator<Item = (Pos, u8)> + '_ {
+        self.neighbor_positions(pos).map(|pos| (pos, self[pos]))
+    }
+
+    pub fn orthogonal_neighbor_positions(&self, pos: Pos) -> impl Iterator<Item = Pos> {
         [
             (pos.row != 0).then_some(Pos {
                 row: pos.row.wrapping_sub(1),
@@ -167,6 +171,11 @@ impl Grid {
         .flatten()
     }
 
+    pub fn orthogonal_neighbors(&self, pos: Pos) -> impl Iterator<Item = (Pos, u8)> + '_ {
+        self.orthogonal_neighbor_positions(pos)
+            .map(|pos| (pos, self[pos]))
+    }
+
     pub fn top_left_orthogonal_neighbors(&self, pos: Pos) -> impl Iterator<Item = Pos> {
         [
             (pos.row != 0).then_some(Pos {
@@ -182,9 +191,10 @@ impl Grid {
         .flatten()
     }
 
-    pub fn positions(&self) -> impl Iterator<Item = Pos> + '_ {
-        (0..self.height()).flat_map(|row| {
-            (0..self.width()).map(move |col| Pos {
+    pub fn positions(&self) -> impl Iterator<Item = Pos> {
+        let width = self.width();
+        (0..self.height()).flat_map(move |row| {
+            (0..width).map(move |col| Pos {
                 row: row as isize,
                 col: col as isize,
             })
