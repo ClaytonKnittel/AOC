@@ -97,43 +97,31 @@ impl Display for Diff {
 
 #[derive(Clone)]
 pub struct Grid {
-    grid: Vec<Vec<u8>>,
+    grid: Vec<u8>,
+    width: usize,
+    height: usize,
 }
 
 impl Grid {
-    pub fn new(grid: Vec<Vec<u8>>) -> Self {
-        Self { grid }
+    pub fn new(grid: Vec<u8>, width: usize, height: usize) -> Self {
+        Self {
+            grid,
+            width,
+            height,
+        }
     }
 
     pub fn width(&self) -> usize {
-        self.grid.first().map(|row| row.len()).unwrap_or(0)
+        self.width
     }
 
     pub fn height(&self) -> usize {
-        self.grid.len()
-    }
-
-    pub fn data(&self) -> &Vec<Vec<u8>> {
-        &self.grid
+        self.height
     }
 
     pub fn in_bounds(&self, pos: Pos) -> bool {
         (0..self.width() as isize).contains(&pos.col)
             && (0..self.height() as isize).contains(&pos.row)
-    }
-
-    pub fn find_and_replace(&mut self, target: u8, replace: u8) -> Option<Pos> {
-        self.grid.iter_mut().enumerate().find_map(|(row_idx, row)| {
-            row.iter_mut().enumerate().find_map(|(col_idx, element)| {
-                (*element == target).then(|| {
-                    *element = replace;
-                    Pos {
-                        row: row_idx as isize,
-                        col: col_idx as isize,
-                    }
-                })
-            })
-        })
     }
 
     pub fn neighbor_positions(&self, pos: Pos) -> impl Iterator<Item = Pos> + '_ {
@@ -202,17 +190,21 @@ impl Grid {
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (Pos, u8)> + '_ {
-        self.grid.iter().enumerate().flat_map(|(row_idx, row)| {
-            row.iter().enumerate().map(move |(col_idx, &tile)| {
-                (
-                    Pos {
-                        row: row_idx as isize,
-                        col: col_idx as isize,
-                    },
-                    tile,
-                )
-            })
+        self.grid.iter().scan((0, 0), |(r, c), &tile| {
+            let row = *r as isize;
+            let col = *c as isize;
+            *c += 1;
+            if *c == self.width {
+                *c = 0;
+                *r += 1;
+            }
+            Some((Pos { row, col }, tile))
         })
+    }
+
+    fn index(&self, pos: Pos) -> usize {
+        debug_assert!(self.in_bounds(pos));
+        pos.row as usize * self.width + pos.col as usize
     }
 }
 
@@ -223,7 +215,7 @@ where
     type Output = u8;
 
     fn index(&self, index: P) -> &Self::Output {
-        &self.grid[index.borrow().row as usize][index.borrow().col as usize]
+        &self.grid[self.index(*index.borrow())]
     }
 }
 
@@ -232,16 +224,23 @@ where
     P: Borrow<Pos>,
 {
     fn index_mut(&mut self, index: P) -> &mut Self::Output {
-        &mut self.grid[index.borrow().row as usize][index.borrow().col as usize]
+        let index = self.index(*index.borrow());
+        &mut self.grid[index]
     }
 }
 
 impl Display for Grid {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.grid.iter().try_fold((), |_, row| {
-            row.iter()
-                .try_fold((), |_, &tile| write!(f, "{}", tile as char))
-                .and_then(|_| writeln!(f))
-        })
+        for row in (0..self.height()).rev() {
+            for col in 0..self.width() {
+                let pos = Pos {
+                    row: row as isize,
+                    col: col as isize,
+                };
+                write!(f, "{}", self[pos] as char)?;
+            }
+            writeln!(f)?;
+        }
+        Ok(())
     }
 }
