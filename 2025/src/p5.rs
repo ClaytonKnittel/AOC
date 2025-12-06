@@ -80,16 +80,27 @@ impl NumericSolution for P5 {
       }
     }
 
-    lines
-      .map(|line| -> AocResult<_> { Ok(line?.parse()?) })
-      .try_fold(0, |acc, val| {
-        let val = val?;
-        let x = ranges.range(RangeBorder::End(val)..).next();
-        if matches!(x, Some(RangeBorder::End(_))) {
-          Ok(acc + 1)
-        } else {
-          Ok(acc)
-        }
-      })
+    match part {
+      Part::P1 => lines
+        .map(|line| -> AocResult<_> { Ok(line?.parse()?) })
+        .try_fold(0, |acc, val| {
+          let val = val?;
+          let x = ranges.range(RangeBorder::End(val)..).next();
+          if matches!(x, Some(RangeBorder::End(_))) {
+            Ok(acc + 1)
+          } else {
+            Ok(acc)
+          }
+        }),
+      Part::P2 => Ok(
+        ranges
+          .iter()
+          .map(|border| match border {
+            RangeBorder::Start(val) => -(*val as i64),
+            RangeBorder::End(val) => *val as i64 + 1,
+          })
+          .sum::<i64>() as u64,
+      ),
+    }
   }
 }
