@@ -18,26 +18,47 @@ impl NumericSolution for P7 {
       .find('S')
       .ok_or_else(|| AocError::Parse("'S' not found in first line".to_owned()))?;
 
-    let (_v, splits) =
-      iter.try_fold((vec![start], 0), |(v, mut splits), line| -> AocResult<_> {
+    let (beams, splits) = iter.try_fold(
+      (vec![(start, 1)], 0),
+      |(beams, mut splits), line| -> AocResult<_> {
         let line = line?;
 
-        let mut next_v = Vec::new();
-        for beam in v {
+        let mut next_beams = Vec::new();
+        for (beam, paths) in beams {
           if line.as_bytes()[beam] == b'^' {
             splits += 1;
-            if next_v.last() != Some(&(beam - 1)) {
-              next_v.push(beam - 1);
+            match next_beams.last_mut() {
+              Some((v, p)) => {
+                if *v == beam - 1 {
+                  *p += paths;
+                } else {
+                  next_beams.push((beam - 1, paths));
+                }
+              }
+              None => next_beams.push((beam - 1, paths)),
             }
-            next_v.push(beam + 1);
-          } else if next_v.last() != Some(&beam) {
-            next_v.push(beam);
+            next_beams.push((beam + 1, paths));
+          } else {
+            match next_beams.last_mut() {
+              Some((v, p)) => {
+                if *v == beam {
+                  *p += paths;
+                } else {
+                  next_beams.push((beam, paths));
+                }
+              }
+              None => next_beams.push((beam, paths)),
+            }
           }
         }
 
-        Ok((next_v, splits))
-      })?;
+        Ok((next_beams, splits))
+      },
+    )?;
 
-    Ok(splits)
+    match part {
+      Part::P1 => Ok(splits),
+      Part::P2 => Ok(beams.iter().map(|(_, paths)| paths).sum()),
+    }
   }
 }
