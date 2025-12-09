@@ -13,6 +13,7 @@ use crate::{
   p6::P6,
   p7::P7,
   p8::P8,
+  p9::P9,
   solution::{Part, Solution},
 };
 
@@ -24,6 +25,7 @@ mod p5;
 mod p6;
 mod p7;
 mod p8;
+mod p9;
 mod solution;
 
 #[derive(EnumIter, Debug, Clone, Copy)]
@@ -36,6 +38,7 @@ enum Problem {
   P6,
   P7,
   P8,
+  P9,
 }
 
 impl Problem {
@@ -49,6 +52,7 @@ impl Problem {
       Self::P6 => println!("Problem 6 {part}: {}", P6::solve("inputs/p6.txt", part)?),
       Self::P7 => println!("Problem 7 {part}: {}", P7::solve("inputs/p7.txt", part)?),
       Self::P8 => println!("Problem 8 {part}: {}", P8::solve("inputs/p8.txt", part)?),
+      Self::P9 => println!("Problem 9 {part}: {}", P9::solve("inputs/p9.txt", part)?),
     }
 
     Ok(())
@@ -78,6 +82,7 @@ impl FromStr for Problem {
       "6" => Ok(Self::P6),
       "7" => Ok(Self::P7),
       "8" => Ok(Self::P8),
+      "9" => Ok(Self::P9),
       _ => Err(AocError::Parse(format!(
         "Failed to parse \"{s}\" as a problem. Expected 1-25, or \"all\""
       ))),
