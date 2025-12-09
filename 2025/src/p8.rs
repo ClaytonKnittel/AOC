@@ -54,28 +54,48 @@ impl NumericSolution for P8 {
     let boxes: Vec<Coord> = list_of_strings(input_path)?
       .map(|input| input?.parse())
       .collect::<Result<_, _>>()?;
+    let n_boxes = boxes.len() as u64;
     let mut uf = UnionFind::from_initializers((0..boxes.len()).map(|idx| (idx, 1)));
 
-    for (_, idx1, idx2) in boxes
+    let connections = boxes
       .iter()
       .cloned()
       .enumerate()
       .tuple_combinations()
       .map(|((idx1, c1), (idx2, c2))| (c1.dist2(&c2), idx1, idx2))
-      .sorted_by_key(|(dist, _, _)| *dist)
-      .take(1000)
-    {
-      uf.union(idx1, idx2);
-    }
+      .sorted_by_key(|(dist, _, _)| *dist);
 
-    Ok(
-      uf.root_level_keys()
-        .into_iter()
-        .map(|key| uf.metadata(key))
-        .sorted()
-        .rev()
-        .take(3)
-        .product(),
-    )
+    match part {
+      Part::P1 => {
+        for (_, idx1, idx2) in connections.take(1000) {
+          uf.union(idx1, idx2);
+        }
+
+        Ok(
+          uf.root_level_keys()
+            .into_iter()
+            .map(|key| uf.metadata(key))
+            .sorted()
+            .rev()
+            .take(3)
+            .product(),
+        )
+      }
+      Part::P2 => {
+        for (_, idx1, idx2) in connections {
+          let k = uf.union(idx1, idx2);
+          if *uf.metadata(k) == n_boxes {
+            return Ok(boxes[idx1].x as u64 * boxes[idx2].x as u64);
+          }
+        }
+
+        Err(
+          AocError::Runtime(
+            "Unexpected termination before all circuits have reconnected".to_owned(),
+          )
+          .into(),
+        )
+      }
+    }
   }
 }
