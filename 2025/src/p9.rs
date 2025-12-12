@@ -1,4 +1,8 @@
-use std::{fmt::Debug, str::FromStr};
+use std::{
+  fmt::Debug,
+  ops::{Add, Sub},
+  str::FromStr,
+};
 
 use itertools::Itertools;
 use util::{
@@ -49,20 +53,6 @@ impl Coord {
     Self {
       x: self.x.min(other.x),
       y: self.y.min(other.y),
-    }
-  }
-
-  fn inc_x(&self, dx: i32) -> Self {
-    Self {
-      x: self.x + dx,
-      y: self.y,
-    }
-  }
-
-  fn inc_y(&self, dy: i32) -> Self {
-    Self {
-      x: self.x,
-      y: self.y + dy,
     }
   }
 
@@ -119,62 +109,83 @@ impl Coord {
     }
   }
 
-  fn area_coverage(&self, next: &Self, turn: Orientation) -> AreaCoverage {
-    debug_assert!((self.x == next.x) != (self.y == next.y));
-    println!(
-      "Dir: {}",
-      match turn {
-        Orientation::Left => "left",
-        Orientation::Right => "right",
+  fn perimeter_offset(&self, prev: &Self, next: &Self) -> Delta {
+    let d1 = *self - *prev;
+    let d2 = *next - *self;
+    if d1.x > 0 {
+      if d2.y > 0 {
+        Delta::DX
+      } else {
+        Delta::ZERO
       }
-    );
+    } else if d1.x < 0 {
+      if d2.y < 0 {
+        Delta::DY
+      } else {
+        Delta::DXY
+      }
+    } else if d1.y > 0 {
+      if d2.x < 0 {
+        Delta::DXY
+      } else {
+        Delta::DX
+      }
+    } else {
+      debug_assert!(d1.y < 0);
+      if d2.x > 0 {
+        Delta::ZERO
+      } else {
+        Delta::DY
+      }
+    }
+  }
+
+  fn area_coverage(&self, next: &Self) -> AreaCoverage {
+    debug_assert!((self.x == next.x) != (self.y == next.y));
 
     let dx = next.x - self.x;
     let dy = next.y - self.y;
-    let mut next_corner = *next;
     let mut pos_corner = *self;
     let mut neg_corner = *self;
     if dx < 0 {
-      next_corner.y += 1;
-      pos_corner.x += 1;
-      neg_corner.x += 1;
       pos_corner.y = i32::MIN;
       neg_corner.y = i32::MAX;
-      match turn {
-        Orientation::Right => pos_corner.x = i32::MAX,
-        Orientation::Left => neg_corner.x = i32::MAX,
-      }
     } else if dx > 0 {
-      next_corner.x += 1;
       pos_corner.y = i32::MAX;
       neg_corner.y = i32::MIN;
-      match turn {
-        Orientation::Right => pos_corner.x = i32::MIN,
-        Orientation::Left => neg_corner.x = i32::MIN,
-      }
     } else if dy < 0 {
-      pos_corner.y += 1;
-      neg_corner.y += 1;
       pos_corner.x = i32::MAX;
       neg_corner.x = i32::MIN;
-      match turn {
-        Orientation::Right => pos_corner.y = i32::MAX,
-        Orientation::Left => neg_corner.y = i32::MAX,
-      }
     } else {
-      next_corner.x += 1;
-      next_corner.y += 1;
       pos_corner.x = i32::MIN;
       neg_corner.x = i32::MAX;
-      match turn {
-        Orientation::Right => pos_corner.y = i32::MIN,
-        Orientation::Left => neg_corner.y = i32::MIN,
-      }
     }
 
     AreaCoverage {
-      positive: Rect::from_any_corners(pos_corner, next_corner),
-      negative: Rect::from_any_corners(neg_corner, next_corner),
+      positive: Rect::from_any_corners(pos_corner, *next),
+      negative: Rect::from_any_corners(neg_corner, *next),
+    }
+  }
+}
+
+impl Add<Delta> for Coord {
+  type Output = Self;
+
+  fn add(self, rhs: Delta) -> Self {
+    Self {
+      x: self.x + rhs.x,
+      y: self.y + rhs.y,
+    }
+  }
+}
+
+impl Sub for Coord {
+  type Output = Delta;
+
+  fn sub(self, rhs: Self) -> Delta {
+    Delta {
+      x: self.x - rhs.x,
+      y: self.y - rhs.y,
     }
   }
 }
@@ -197,6 +208,30 @@ impl FromStr for Coord {
 impl Debug for Coord {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(f, "({},{})", self.x, self.y)
+  }
+}
+
+#[derive(Clone, Copy)]
+struct Delta {
+  x: i32,
+  y: i32,
+}
+
+impl Delta {
+  const ZERO: Self = Self { x: 0, y: 0 };
+  const DX: Self = Self { x: 1, y: 0 };
+  const DY: Self = Self { x: 0, y: 1 };
+  const DXY: Self = Self { x: 1, y: 1 };
+}
+
+impl Add for Delta {
+  type Output = Self;
+
+  fn add(self, rhs: Self) -> Self {
+    Self {
+      x: self.x + rhs.x,
+      y: self.y + rhs.y,
+    }
   }
 }
 
@@ -268,27 +303,36 @@ impl NumericSolution for P9 {
           orientation(&red_tiles)
         );
 
-        let rects = red_tiles
+        let perimeter_path = red_tiles
           .iter()
           .cycle()
           .tuple_windows()
           .take(red_tiles.len())
-          .inspect(|(_, b, c)| {
-            println!("{b:?} -> {c:?}");
+          .map(|(a, b, c)| *b + b.perimeter_offset(a, c))
+          .collect_vec();
+
+        let rects = perimeter_path
+          .iter()
+          .cycle()
+          .tuple_windows()
+          .take(red_tiles.len())
+          .inspect(|(a, b)| {
+            println!("{a:?} -> {b:?}");
           })
-          .map(|(a, b, c)| b.area_coverage(c, b.turn(a, c)))
+          .map(|(a, b)| a.area_coverage(b))
           .inspect(|AreaCoverage { positive, negative }| {
             println!("+{positive:?}, -{negative:?}");
           })
           .collect_vec();
 
-        let x_min = red_tiles.iter().map(|tile| tile.x).min().unwrap();
-        let x_max = red_tiles.iter().map(|tile| tile.x).max().unwrap();
-        let y_min = red_tiles.iter().map(|tile| tile.y).min().unwrap();
-        let y_max = red_tiles.iter().map(|tile| tile.y).max().unwrap();
+        let x_min = perimeter_path.iter().map(|tile| tile.x).min().unwrap();
+        let x_max = perimeter_path.iter().map(|tile| tile.x).max().unwrap();
+        let y_min = perimeter_path.iter().map(|tile| tile.y).min().unwrap();
+        let y_max = perimeter_path.iter().map(|tile| tile.y).max().unwrap();
 
-        for (AreaCoverage { positive, negative }, (_, p1, p2)) in
-          rects.iter().zip(red_tiles.iter().cycle().tuple_windows())
+        for (AreaCoverage { positive, negative }, (_, p1, p2)) in rects
+          .iter()
+          .zip(perimeter_path.iter().cycle().tuple_windows())
         {
           println!("{p1:?} -> {p2:?}");
           let r = Rect::from_any_corners(p1.min(p2), p1.max(p2).inc_to_excl());
