@@ -129,48 +129,46 @@ impl Coord {
       }
     );
 
-    let dx = self.x - next.x;
-    let dy = self.y - next.y;
+    let dx = next.x - self.x;
+    let dy = next.y - self.y;
     let mut next_corner = *next;
     let mut pos_corner = *self;
     let mut neg_corner = *self;
     if dx < 0 {
-      pos_corner.x += 1;
-      pos_corner.y = i32::MAX;
-      neg_corner.x += 1;
-      neg_corner.y = i32::MIN;
-      match turn {
-        Orientation::Right => pos_corner.x = i32::MIN,
-        Orientation::Left => neg_corner.x = i32::MIN,
-      }
-    } else if dx > 0 {
       next_corner.y += 1;
-      pos_corner.x -= 1;
+      pos_corner.x += 1;
+      neg_corner.x += 1;
       pos_corner.y = i32::MIN;
-      neg_corner.x -= 1;
       neg_corner.y = i32::MAX;
       match turn {
         Orientation::Right => pos_corner.x = i32::MAX,
         Orientation::Left => neg_corner.x = i32::MAX,
       }
-    } else if dy < 0 {
+    } else if dx > 0 {
       next_corner.x += 1;
-      pos_corner.y += 1;
-      pos_corner.x = i32::MIN;
-      neg_corner.y += 1;
-      neg_corner.x = i32::MAX;
+      pos_corner.y = i32::MAX;
+      neg_corner.y = i32::MIN;
       match turn {
-        Orientation::Right => pos_corner.y = i32::MIN,
-        Orientation::Left => neg_corner.y = i32::MIN,
+        Orientation::Right => pos_corner.x = i32::MIN,
+        Orientation::Left => neg_corner.x = i32::MIN,
       }
-    } else {
-      pos_corner.y -= 1;
+    } else if dy < 0 {
+      pos_corner.y += 1;
+      neg_corner.y += 1;
       pos_corner.x = i32::MAX;
-      neg_corner.y -= 1;
       neg_corner.x = i32::MIN;
       match turn {
         Orientation::Right => pos_corner.y = i32::MAX,
         Orientation::Left => neg_corner.y = i32::MAX,
+      }
+    } else {
+      next_corner.x += 1;
+      next_corner.y += 1;
+      pos_corner.x = i32::MIN;
+      neg_corner.x = i32::MAX;
+      match turn {
+        Orientation::Right => pos_corner.y = i32::MIN,
+        Orientation::Left => neg_corner.y = i32::MIN,
       }
     }
 
@@ -289,7 +287,27 @@ impl NumericSolution for P9 {
         let y_min = red_tiles.iter().map(|tile| tile.y).min().unwrap();
         let y_max = red_tiles.iter().map(|tile| tile.y).max().unwrap();
 
-        for AreaCoverage { positive, negative } in rects.iter() {
+        for (AreaCoverage { positive, negative }, (_, p1, p2)) in
+          rects.iter().zip(red_tiles.iter().cycle().tuple_windows())
+        {
+          println!("{p1:?} -> {p2:?}");
+          let r = Rect::from_any_corners(p1.min(p2), p1.max(p2).inc_to_excl());
+          for y in (y_min - 1..=y_max + 1).rev() {
+            print!("{y:3}:");
+            for x in x_min - 1..=x_max + 1 {
+              let p = Rect::from_any_corners(Coord { x, y }, Coord { x: x + 1, y: y + 1 });
+              let c = r.intersection(&p).area();
+              print!("{c:3}");
+            }
+            println!();
+          }
+          print!("    ");
+          for x in x_min - 1..=x_max + 1 {
+            print!("{x:3}");
+          }
+          println!();
+          println!();
+
           for y in (y_min - 1..=y_max + 1).rev() {
             print!("{y:3}:");
             for x in x_min - 1..=x_max + 1 {
@@ -304,6 +322,7 @@ impl NumericSolution for P9 {
           for x in x_min - 1..=x_max + 1 {
             print!("{x:3}");
           }
+          println!();
           println!();
           println!();
         }
