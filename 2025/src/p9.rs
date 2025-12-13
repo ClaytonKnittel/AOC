@@ -97,18 +97,6 @@ impl Coord {
     }
   }
 
-  fn turn(&self, prev: &Self, next: &Self) -> Orientation {
-    let px = self.x - prev.x;
-    let py = self.y - prev.y;
-    let nx = next.x - self.x;
-    let ny = next.y - self.y;
-    if px * ny - py * nx > 0 {
-      Orientation::Left
-    } else {
-      Orientation::Right
-    }
-  }
-
   fn perimeter_offset(&self, prev: &Self, next: &Self) -> Delta {
     let d1 = *self - *prev;
     let d2 = *next - *self;
@@ -205,12 +193,6 @@ impl FromStr for Coord {
   }
 }
 
-impl Debug for Coord {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "({},{})", self.x, self.y)
-  }
-}
-
 #[derive(Clone, Copy)]
 struct Delta {
   x: i32,
@@ -275,12 +257,6 @@ impl Rect {
   }
 }
 
-impl Debug for Rect {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "({:?}, {:?})", self.ll, self.ur)
-  }
-}
-
 pub struct P9;
 
 impl NumericSolution for P9 {
@@ -316,81 +292,8 @@ impl NumericSolution for P9 {
           .cycle()
           .tuple_windows()
           .take(red_tiles.len())
-          .inspect(|(a, b)| {
-            println!("{a:?} -> {b:?}");
-          })
           .map(|(a, b)| a.area_coverage(b))
-          .inspect(|AreaCoverage { positive, negative }| {
-            println!("+{positive:?}, -{negative:?}");
-          })
           .collect_vec();
-
-        let x_min = perimeter_path.iter().map(|tile| tile.x).min().unwrap();
-        let x_max = perimeter_path.iter().map(|tile| tile.x).max().unwrap();
-        let y_min = perimeter_path.iter().map(|tile| tile.y).min().unwrap();
-        let y_max = perimeter_path.iter().map(|tile| tile.y).max().unwrap();
-
-        for (AreaCoverage { positive, negative }, (_, p1, p2)) in rects
-          .iter()
-          .zip(perimeter_path.iter().cycle().tuple_windows())
-        {
-          println!("{p1:?} -> {p2:?}");
-          let r = Rect::from_any_corners(p1.min(p2), p1.max(p2).inc_to_excl());
-          for y in (y_min - 1..=y_max + 1).rev() {
-            print!("{y:3}:");
-            for x in x_min - 1..=x_max + 1 {
-              let p = Rect::from_any_corners(Coord { x, y }, Coord { x: x + 1, y: y + 1 });
-              let c = r.intersection(&p).area();
-              print!("{c:3}");
-            }
-            println!();
-          }
-          print!("    ");
-          for x in x_min - 1..=x_max + 1 {
-            print!("{x:3}");
-          }
-          println!();
-          println!();
-
-          for y in (y_min - 1..=y_max + 1).rev() {
-            print!("{y:3}:");
-            for x in x_min - 1..=x_max + 1 {
-              let p = Rect::from_any_corners(Coord { x, y }, Coord { x: x + 1, y: y + 1 });
-              let c =
-                positive.intersection(&p).area() as i32 - negative.intersection(&p).area() as i32;
-              print!("{c:3}");
-            }
-            println!();
-          }
-          print!("    ");
-          for x in x_min - 1..=x_max + 1 {
-            print!("{x:3}");
-          }
-          println!();
-          println!();
-          println!();
-        }
-
-        for y in (y_min - 1..=y_max + 1).rev() {
-          print!("{y:3}:");
-          for x in x_min - 1..=x_max + 1 {
-            let p = Rect::from_any_corners(Coord { x, y }, Coord { x: x + 1, y: y + 1 });
-            let c = rects
-              .iter()
-              .map(|AreaCoverage { positive, negative }| {
-                positive.intersection(&p).area() as i32 - negative.intersection(&p).area() as i32
-              })
-              .sum::<i32>();
-            print!("{c:3}");
-          }
-          println!();
-        }
-        print!("    ");
-        for x in x_min - 1..=x_max + 1 {
-          print!("{x:3}");
-        }
-        println!();
-        println!();
 
         let mut bbs = red_tiles
           .into_iter()
@@ -409,13 +312,12 @@ impl NumericSolution for P9 {
               })
               .sum::<i64>();
             debug_assert!(
-              rect_contrib == 4 * bb.area() as i64 || rect_contrib == -4 * bb.area() as i64,
-              "Expected {} or -{}, got {rect_contrib}",
-              4 * bb.area(),
+              rect_contrib <= 4 * bb.area() as i64,
+              "Expected <= {}, got {rect_contrib}",
               4 * bb.area()
             );
 
-            rect_contrib > 0
+            rect_contrib == 4 * bb.area() as i64
           })
           .map(|bb| bb.area())
           .next()
