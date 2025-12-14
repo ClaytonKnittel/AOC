@@ -6,6 +6,7 @@ use util::error::{AocError, AocResult};
 
 use crate::{
   p1::P1,
+  p10::P10,
   p2::P2,
   p3::P3,
   p4::P4,
@@ -18,6 +19,7 @@ use crate::{
 };
 
 mod p1;
+mod p10;
 mod p2;
 mod p3;
 mod p4;
@@ -39,6 +41,7 @@ enum Problem {
   P7,
   P8,
   P9,
+  P10,
 }
 
 impl Problem {
@@ -53,6 +56,7 @@ impl Problem {
       Self::P7 => println!("Problem 7 {part}: {}", P7::solve("inputs/p7.txt", part)?),
       Self::P8 => println!("Problem 8 {part}: {}", P8::solve("inputs/p8.txt", part)?),
       Self::P9 => println!("Problem 9 {part}: {}", P9::solve("inputs/p9.txt", part)?),
+      Self::P10 => println!("Problem 10 {part}: {}", P10::solve("inputs/p10.txt", part)?),
     }
 
     Ok(())
@@ -83,6 +87,7 @@ impl FromStr for Problem {
       "7" => Ok(Self::P7),
       "8" => Ok(Self::P8),
       "9" => Ok(Self::P9),
+      "10" => Ok(Self::P10),
       _ => Err(AocError::Parse(format!(
         "Failed to parse \"{s}\" as a problem. Expected 1-25, or \"all\""
       ))),
