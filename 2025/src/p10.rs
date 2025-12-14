@@ -1,4 +1,4 @@
-use std::{fmt::Debug, str::FromStr};
+use std::{fmt::Debug, iter::successors, str::FromStr};
 
 use itertools::Itertools;
 use util::{
@@ -66,6 +66,17 @@ impl Debug for Target {
 
 struct Button {
   sequence: u32,
+}
+
+impl Button {
+  fn toggles(&self) -> impl Iterator<Item = u32> {
+    let if_ne_zero = |value: u32| (value != 0).then_some(value);
+    successors(if_ne_zero(self.sequence), move |&value| {
+      let value = value & (value - 1);
+      if_ne_zero(value)
+    })
+    .map(|mask| mask.trailing_zeros())
+  }
 }
 
 impl FromStr for Button {
@@ -161,7 +172,7 @@ impl FromStr for Machine {
       .ok_or_else(|| AocError::Parse("Unexpected empty machine descriptor".to_owned()))?
       .parse()?;
 
-    let mut buttons = Vec::new();
+    let mut buttons = Vec::<Button>::new();
     let joltage_requirements = loop {
       let Some(button) = words.next() else {
         return Err(AocError::Parse(format!(
@@ -175,6 +186,9 @@ impl FromStr for Machine {
 
       buttons.push(button.parse()?);
     };
+
+    // Sort buttons from most affected targets to least.
+    buttons.sort_by_key(|button| button.sequence.count_zeros());
 
     Ok(Self {
       target,
@@ -229,16 +243,61 @@ fn fewest_presses_to_configure(machine: &Machine) -> AocResult<u64> {
   }
 }
 
+fn configure_joltage(joltage_requirements: &[u32], buttons: &[Button]) -> Option<u64> {
+  if buttons.is_empty() {
+    return joltage_requirements
+      .iter()
+      .all(|&requirement| requirement == 0)
+      .then_some(0);
+  }
+
+  let largest_button = &buttons[0];
+  let max_presses = largest_button
+    .toggles()
+    .map(|toggle| joltage_requirements[toggle as usize])
+    .min()
+    .unwrap();
+
+  let mut new_joltage_requirements: Vec<_> = joltage_requirements.into();
+  for toggle in largest_button.toggles() {
+    new_joltage_requirements[toggle as usize] -= max_presses;
+  }
+
+  for presses in (0..=max_presses).rev() {
+    if let Some(remaining_presses) = configure_joltage(&new_joltage_requirements, &buttons[1..]) {
+      return Some(presses as u64 + remaining_presses);
+    }
+
+    for toggle in largest_button.toggles() {
+      new_joltage_requirements[toggle as usize] += 1;
+    }
+  }
+
+  None
+}
+
+fn fewest_presses_to_configure_joltage(machine: &Machine) -> AocResult<u64> {
+  configure_joltage(&machine.joltage_requirements.requirements, &machine.buttons).ok_or_else(|| {
+    AocError::Runtime(format!(
+      "No valid joltage configuration found for {machine:?}"
+    ))
+    .into()
+  })
+}
+
 pub struct P10;
 
 impl NumericSolution for P10 {
   fn solve(input_path: &str, part: Part) -> AocResult<u64> {
     let v: Vec<_> = list_of_strings(input_path)?
-      .map(|line| -> AocResult<Machine> { Ok(line?.parse()?) })
-      .collect::<Result<_, _>>()?;
+      .map(|line| Ok(line?.parse()?))
+      .collect::<AocResult<_>>()?;
 
     v.iter()
-      .map(fewest_presses_to_configure)
+      .map(match part {
+        Part::P1 => fewest_presses_to_configure,
+        Part::P2 => fewest_presses_to_configure_joltage,
+      })
       .try_fold(0, |acc, presses| Ok(acc + presses?))
   }
 }
