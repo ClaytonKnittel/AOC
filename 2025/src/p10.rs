@@ -15,6 +15,15 @@ fn strip_parens(s: &str, open: char, close: char) -> Result<&str, AocError> {
     .ok_or_else(|| AocError::Parse(format!("Failed to parse \"{s}\": missing '{close}' suffix")))
 }
 
+fn iter_ones(n: u32) -> impl Iterator<Item = u32> {
+  let if_ne_zero = |value: u32| (value != 0).then_some(value);
+  successors(if_ne_zero(n), move |&value| {
+    let value = value & (value - 1);
+    if_ne_zero(value)
+  })
+  .map(|mask| mask.trailing_zeros())
+}
+
 struct Target {
   sequence: u32,
   length: u32,
@@ -70,12 +79,7 @@ struct Button {
 
 impl Button {
   fn toggles(&self) -> impl Iterator<Item = u32> {
-    let if_ne_zero = |value: u32| (value != 0).then_some(value);
-    successors(if_ne_zero(self.sequence), move |&value| {
-      let value = value & (value - 1);
-      if_ne_zero(value)
-    })
-    .map(|mask| mask.trailing_zeros())
+    iter_ones(self.sequence)
   }
 }
 
@@ -243,12 +247,28 @@ fn fewest_presses_to_configure(machine: &Machine) -> AocResult<u64> {
   }
 }
 
-fn configure_joltage(joltage_requirements: &[u32], buttons: &[Button]) -> Option<u64> {
+enum ConfigureResult {
+  Success(u64),
+  Failure,
+  LackingCoverage,
+}
+
+fn configure_joltage(joltage_requirements: &[u32], buttons: &[Button]) -> ConfigureResult {
   if buttons.is_empty() {
-    return joltage_requirements
+    if joltage_requirements
       .iter()
       .all(|&requirement| requirement == 0)
-      .then_some(0);
+    {
+      return ConfigureResult::Success(0);
+    } else {
+      return ConfigureResult::LackingCoverage;
+    }
+  }
+
+  let missing_buttons_mask = !buttons.iter().fold(0, |acc, button| acc | button.sequence)
+    & ((1 << joltage_requirements.len()) - 1);
+  if iter_ones(missing_buttons_mask).any(|idx| joltage_requirements[idx as usize] != 0) {
+    return ConfigureResult::LackingCoverage;
   }
 
   let largest_button = &buttons[0];
@@ -263,9 +283,15 @@ fn configure_joltage(joltage_requirements: &[u32], buttons: &[Button]) -> Option
     new_joltage_requirements[toggle as usize] -= max_presses;
   }
 
+  let mut min = None;
   for presses in (0..=max_presses).rev() {
-    if let Some(remaining_presses) = configure_joltage(&new_joltage_requirements, &buttons[1..]) {
-      return Some(presses as u64 + remaining_presses);
+    match configure_joltage(&new_joltage_requirements, &buttons[1..]) {
+      ConfigureResult::Success(remaining_presses) => {
+        let presses = presses as u64 + remaining_presses;
+        min = Some(min.map_or(presses, |min: u64| min.min(presses)))
+      }
+      ConfigureResult::Failure => {}
+      ConfigureResult::LackingCoverage => break,
     }
 
     for toggle in largest_button.toggles() {
@@ -273,16 +299,23 @@ fn configure_joltage(joltage_requirements: &[u32], buttons: &[Button]) -> Option
     }
   }
 
-  None
+  match min {
+    Some(min_presses) => ConfigureResult::Success(min_presses),
+    None => ConfigureResult::Failure,
+  }
 }
 
 fn fewest_presses_to_configure_joltage(machine: &Machine) -> AocResult<u64> {
-  configure_joltage(&machine.joltage_requirements.requirements, &machine.buttons).ok_or_else(|| {
-    AocError::Runtime(format!(
-      "No valid joltage configuration found for {machine:?}"
-    ))
-    .into()
-  })
+  println!("Processing {machine:?}");
+  match configure_joltage(&machine.joltage_requirements.requirements, &machine.buttons) {
+    ConfigureResult::Success(presses) => Ok(presses),
+    _ => Err(
+      AocError::Runtime(format!(
+        "No valid joltage configuration found for {machine:?}"
+      ))
+      .into(),
+    ),
+  }
 }
 
 pub struct P10;

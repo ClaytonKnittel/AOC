@@ -9,10 +9,6 @@ pub enum Part {
 }
 
 impl Part {
-  pub fn p1(&self) -> bool {
-    matches!(self, Self::P1)
-  }
-
   pub fn p2(&self) -> bool {
     matches!(self, Self::P2)
   }
